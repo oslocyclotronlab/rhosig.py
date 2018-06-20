@@ -90,6 +90,9 @@ E1, Gamma1, sigma1 = 4., 2., 3.
 gsf_true = SLO(Emid, E0, Gamma0, sigma0) +  SLO(Emid, E1, Gamma1, sigma1)
 T_true = gsf_true * pow(Emid,3.) # transcoeff = gsf * E^(2L+1)
 
+# artifical reduction of the NLD -- creating a "hole"
+rho_true[4:7] = 0
+
 # generate true 1Gen matrix and add statistical noise
 P_true = PfromRhoT(rho_true,gsf_true,type="gsfL1")
 P_true += P_true * np.random.rand(Nbins,Nbins) # gaussian errors
