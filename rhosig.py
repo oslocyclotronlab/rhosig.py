@@ -88,6 +88,10 @@ def objfun1D(x, *args):
 # generate true 1Gen matrix and add statistical noise
 P_true = oslo_matrix
 
+# maipulation to try to improve the fit
+P_true[np.where(P_true == 0)] = 1e-1 # fill holes with a really small number
+P_true = np.tril(P_true) # set lower triangle to 0 -- due to array form <-> where Eg>Ex
+
 # creating some articifical holes -- simulating artifacts
 # P_true[40:50,40:50]=0
 # P_true[10:15,5:10]=0

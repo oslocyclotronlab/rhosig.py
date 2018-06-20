@@ -94,6 +94,10 @@ T_true = gsf_true * pow(Emid,3.) # transcoeff = gsf * E^(2L+1)
 P_true = PfromRhoT(rho_true,gsf_true,type="gsfL1")
 P_true += P_true * np.random.rand(Nbins,Nbins) # gaussian errors
 
+# maipulation to try to improve the fit
+P_true[np.where(P_true == 0)] = 1e-13 # fill holes with a really small number
+P_true = np.tril(P_true) # set lower triangle to 0 -- due to array form <-> where Eg>Ex
+
 # creating some articifical holes -- simulating artifacts
 # P_true[40:50,40:50]=0
 # P_true[10:15,5:10]=0
