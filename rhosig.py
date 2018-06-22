@@ -15,10 +15,9 @@ oslo_matrix = data[20:-20,20:-20]
 
 # Set bin width and range
 bin_width = 0.20
-Emin = 0.  # Minimum and maximum excitation
-Emax = 5. # energy over which to extract strength function
-# Nbins = int(np.ceil(Emax/bin_width))
-Nbins = 133-40 # hand adjusted
+Emin = 0.  # Minimum and maximum excitation                  -- CURRENTLY ARBITRARY
+Emax = 5.  # energy over which to extract strength function  -- CURRENTLY ARBITRARY
+Nbins = len(oslo_matrix) # hand adjusted
 Emax_adjusted = bin_width*Nbins # Trick to get an integer number of bins
 bins = np.linspace(0,Emax_adjusted,Nbins+1)
 Emid = (bins[0:-1]+bins[1:])/2 # Array of middle-bin values, to use for plotting gsf
@@ -43,6 +42,7 @@ def SLO(E, E0, Gamma0, sigma0):
 
 def rho_CT(Ex, E0, T):
   # constant temperature NLD formula
+  Ex = np.atleast_1d(Ex)
   Eff = Ex - E0
   rho = np.zeros(len(Ex))
   for i in range(len(Ex)):
