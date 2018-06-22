@@ -21,7 +21,7 @@ def PfromRhoT(rho, T, type="transCoeff"):
   Nbins = len(rho) #-- TODO: update for different #bins for Ex and Eg
   P = np.zeros((Nbins,Nbins))
   for i_Ex in range(Nbins):
-    for i_Eg in range(Nbins):
+    for i_Eg in range(i_Ex+1):
       i_Ediff = i_Ex - i_Eg
       if i_Ediff>=0: # no gamma's with higher energy then the excitation energy
         P[i_Ex,i_Eg] = rho[i_Ediff] * T[i_Eg]
@@ -50,19 +50,22 @@ def objfun1D(x, *args):
   rho, T= rhoTfrom1D(x)
   return chi2(rho, T, Pexp)
 
-def decompose_matrix(P_in, Emid):
+def decompose_matrix(P_in, Emid, fill_value=0):
   # routine for the decomposition of the input 
   # inputs:
   # P_in: Matrix to be decomposed
   # Emin: Array of middle-bin values,
   print "attempt decomposition"
 
+  # protect input arrays
+  P_in = np.copy(P_in)
+  Emid = np.copy(Emid)
+
   # TODO: update for different #bins for Ex and Eg
   Nbins = len(P_in) # hand adjusted
 
-
-  # maipulation to try to improve the fit
-  P_in[np.where(P_in == 0)] = 1e-1 # fill holes with a really small number
+  # manipulation to try to improve the fit
+  P_in[np.where(P_in == 0)] = fill_value # fill holes with a really small number
   P_in = np.tril(P_in) # set lower triangle to 0 -- due to array form <-> where Eg>Ex
 
   # creating some articifical holes -- simulating artifacts

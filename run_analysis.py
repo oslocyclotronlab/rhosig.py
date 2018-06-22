@@ -74,7 +74,7 @@ bins = np.linspace(0,Emax_adjusted,Nbins+1)
 Emid = (bins[0:-1]+bins[1:])/2 # Array of middle-bin values, to use for plotting gsf
 
 # decomposition of first gereration matrix P in NLD rho and transmission coefficient T
-rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, Emid=Emid)
+rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, Emid=Emid, fill_value=1e-11)
 print "decomposed matrix to rho and T"
 
 rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=None, gsf_true=None)
