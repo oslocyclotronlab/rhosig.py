@@ -65,7 +65,9 @@ def decompose_matrix(P_in, Emid, fill_value=0):
   Nbins = len(P_in) # hand adjusted
 
   # manipulation to try to improve the fit
-  P_in[np.where(P_in == 0)] = fill_value # fill holes with a really small number
+  # TODO: imporvement might be to look for elements = 0 only in the trangle Ex<Eg
+  #        + automate what value should be filled. Maybe 1/10 of smallest value in matrix?
+  P_in[np.where(P_in == 0)] = fill_value # fill holes with a really small number 
   P_in = np.tril(P_in) # set lower triangle to 0 -- due to array form <-> where Eg>Ex
 
   # creating some articifical holes -- simulating artifacts
