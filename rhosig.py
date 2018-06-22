@@ -124,12 +124,6 @@ p_fit = res.x
 rho_fit, T_fit= rhoTfrom1D(p_fit)
 gsf_fit = T_fit/pow(Emid,3)  # assuming dipoles only
 
-# "normalize" -- or at least some approximation to this
-# alpha = rho_true[0]/rho_fit[0]
-# rho_fit *= alpha
-# T_fit   /= alpha
-# gsf_fit /= alpha
-
 # Plot it
 
 # New Figure: Oslo type matrix
