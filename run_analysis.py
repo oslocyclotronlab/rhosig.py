@@ -3,13 +3,14 @@ import matplotlib.pyplot as plt
 
 import rhosig as rsg
 import generateRhoT as gen
+import normalization as norm
 
 # Analysis of first generations matrix
 # by Oslo Method
 
-def rsg_plots(rho_fit, T_fit, P_in, rho_true=None, gsf_true=None):
+def rsg_plots(rho_fit, T_fit, P_in, rho_true=None):
 	# creates 
-    gsf_fit = T_fit/pow(Emid,3)  # assuming dipoles only
+    # gsf_fit = T_fit/pow(Emid,3)  # assuming dipoles only
     # New Figure: Oslo type matrix
     f_mat, ax_mat = plt.subplots(2,1)
 
@@ -33,6 +34,21 @@ def rsg_plots(rho_fit, T_fit, P_in, rho_true=None, gsf_true=None):
     ax.set_xlabel(r"$E_\gamma \, \mathrm{(MeV)}$")
     ax.set_ylabel(r'$E_x \, \mathrm{(MeV)}$')
 
+    # New Figure: compare input and output NLD and gsf
+    f_mat, ax_mat = plt.subplots(2,1)
+
+    # NLD
+    ax = ax_mat[0]
+    if rho_true!=None: ax.plot(Emid,rho_true)
+    ax.plot(Emid,rho_fit,"o")
+
+    ax.set_yscale('log')
+    ax.set_xlabel(r"$E_x \, \mathrm{(MeV)}$")
+    ax.set_ylabel(r'$\rho \, \mathrm{(MeV)}$')
+
+    plt.show()
+
+def normalized_plots(rho_fit, gsf_fit, rho_true=None, gsf_true=None):
     # New Figure: compare input and output NLD and gsf
     f_mat, ax_mat = plt.subplots(2,1)
 
@@ -95,11 +111,41 @@ if UseSynthetic1Gen:
     Emid = (bins[0:-1]+bins[1:])/2 # Array of middle-bin values, to use for plotting gsf
 
     rho_true, T_true, gsf_true= gen.generateRhoT(Emid)
+    rho_true [3:5]=0. # simulte some artefacts
     oslo_matrix = rsg.PfromRhoT(rho_true,T_true)
 
 # decomposition of first gereration matrix P in NLD rho and transmission coefficient T
 rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, Emid=Emid, fill_value=1e-11)
 print "decomposed matrix to rho and T"
 
-# rsg_plots(rho_fit, T_fit, P_in=oslo_matrix)
-rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
+# normalize the NLD
+nldE1 = np.array([3.,282.]) # Mev, Mev^-1; higher normalization point
+nldE2 = np.array([11.197,2.18]) # Mev, Mev^-1; higher normalization point
+rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE1[1], nldE2[1], Emid=Emid, rho=rho_fit)
+
+# rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=None, gsf_true=None)
+# rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
+
+# normalization of the gsf
+# choose a spincut model and give it's parameters
+# spincutModel="EB05"
+# spincutPars={"mass":120, "NLDa":2.4, "Eshift":-0.7} # some dummy values
+
+spincutModel="EB09_emp"
+spincutPars={"mass":56, "Pa_prime":2.905} # some dummy values
+
+# input parameters:
+# Emid, rho_in, T_in in MeV, MeV^-1, 1
+# Jtarget in 1
+# D0 in eV
+# Gg in meV
+# Sn in MeV
+
+D0 = 3.36e3 # eV 
+Gg = 1900/2.3 # meV --> div by 2.3 due to RAINIER input model
+Sn = Emax # work-around for now! -- until energy calibration is set!
+
+gsf_fit = norm.normalizeGSF(Emid=Emid, rho_in=rho_fit, T_in=T_fit, Jtarget=0, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, spincutModel=spincutModel, spincutPars=spincutPars)
+print gsf_fit
+# normalized_plots(rho_fit, gsf_fit)
+normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true)
