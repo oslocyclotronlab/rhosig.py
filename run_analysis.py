@@ -140,8 +140,8 @@ if UseExp1Gen:
     Emid, bin_width = EmidsFromMama(fname1Gen)
 
     # if one wants to cut away some part of the matrix
-    oslo_matrix = data[20:-20,20:-20]
-    Emid = Emid[20:-20]
+    oslo_matrix = data[20:-30,20:-30]
+    Emid = Emid[20:-30]
 
     Nbins = len(oslo_matrix) # hand adjusted
     Eup_max = Emid[-1] + bin_width/2. # upper bound of last bin
@@ -171,7 +171,7 @@ print "decomposed matrix to rho and T"
 # normalize the NLD
 # nldE1 = np.array([3.,282.]) # Mev, Mev^-1; higher normalization point
 # nldE2 = np.array([11.197,2.18]) # Mev, Mev^-1; higher normalization point
-nldE1 = np.array([5.5,1.e2]) # Mev, Mev^-1; higher normalization point
+nldE1 = np.array([3.24,7.]) # Mev, Mev^-1; higher normalization point
 nldE2 = np.array([11.197,2.18e3]) # Mev, Mev^-1; higher normalization point
 rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid=Emid, rho=rho_fit)
 
