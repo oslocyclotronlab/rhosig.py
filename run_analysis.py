@@ -121,7 +121,7 @@ print "decomposed matrix to rho and T"
 # normalize the NLD
 nldE1 = np.array([3.,282.]) # Mev, Mev^-1; higher normalization point
 nldE2 = np.array([11.197,2.18]) # Mev, Mev^-1; higher normalization point
-rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE1[1], nldE2[1], Emid=Emid, rho=rho_fit)
+rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid=Emid, rho=rho_fit)
 
 # rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=None, gsf_true=None)
 # rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
