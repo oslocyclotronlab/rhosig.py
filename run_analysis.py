@@ -35,11 +35,10 @@ def rsg_plots(rho_fit, T_fit, P_in, rho_true=None):
     ax.set_xlabel(r"$E_\gamma \, \mathrm{(MeV)}$")
     ax.set_ylabel(r'$E_x \, \mathrm{(MeV)}$')
 
-    # New Figure: compare input and output NLD and gsf
-    f_mat, ax_mat = plt.subplots(2,1)
+    # New Figure: compare input and output NLD
+    f_mat, ax = plt.subplots(1,1)
 
     # NLD
-    ax = ax_mat[0]
     if rho_true!=None: ax.plot(Emid,rho_true)
     ax.plot(Emid,rho_fit,"o")
 
