@@ -128,7 +128,7 @@ def normalizeGSF(Emid, rho_in, T_in, Jtarget, D0, Gg, Sn, alpha_norm, spincutMod
 
   b_norm = 1./GetNormFromGgD0(Gg, D0)
   T_norm = T_in * b_norm * np.exp(alpha_norm * Emid)
-  gsf = T_norm / Emid**3 # here: assume dipole radiation
+  gsf = T_norm / (2.*np.pi*Emid**3) # here: assume dipole radiation
 
   print "alpha_norm: {0}".format(alpha_norm)
   print "b_norm: {0}".format(b_norm)
