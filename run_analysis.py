@@ -52,7 +52,7 @@ def rsg_plots(rho_fit, T_fit, P_in, nld_ext=None, rho_true=None):
 
     plt.show()
 
-def normalized_plots(rho_fit, gsf_fit, rho_true=None, rho_true_binwidth=None, gsf_true=None):
+def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, rho_true=None, rho_true_binwidth=None, gsf_true=None):
     # New Figure: compare input and output NLD and gsf
     f_mat, ax_mat = plt.subplots(2,1)
 
@@ -69,6 +69,8 @@ def normalized_plots(rho_fit, gsf_fit, rho_true=None, rho_true_binwidth=None, gs
     ax = ax_mat[1]
     if gsf_true!=None: ax.plot(gsf_true[:,0],gsf_true[:,1])
     ax.plot(Emid,gsf_fit,"o")
+    [gsf_ext_high_plt] = ax.plot(gsf_ext_high[:,0],gsf_ext_high[:,1],"r--", label="ext. high")
+    [gsf_ext_low_plt] = ax.plot(gsf_ext_low[:,0],gsf_ext_low[:,1],"b--", label="ext. high")
 
     ax.set_yscale('log')
     ax.set_xlabel(r"$E_\gamma \, \mathrm{(MeV)}$")
@@ -198,6 +200,9 @@ rho_true, rho_true_binwith = load_NLDtrue()
 # normalize
 rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid_rho=Emid_rho, rho=rho_fit)
 
+# apply "shape" correction to T
+T_fit *=  np.exp(alpha_norm * Emid)
+
 # extrapolation
 ext_range = np.array([2.5,7.])
 nldPars = dict()
@@ -239,26 +244,28 @@ Sn = 6.534 # work-around for now! -- until energy calibration is set!
 
 # extrapolations
 ext_range = np.array([0,3.,4., Sn+1])
-gsf_ext_low, gsf_ext_high = norm.gsf_extrapolation(Emid, T_fit=T_fit*np.exp(alpha_norm * Emid), 
+trans_ext_low, trans_ext_high = norm.trans_extrapolation(Emid, T_fit=T_fit, 
                                                    pars=pars, ext_range=ext_range,
                                                    makePlot=makePlot, interactive=interactive)
 
 ############
 ###################################################################
 
-gsf_fit = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, T_in=T_fit, 
-                            nld_ext = nld_ext,
-                            gsf_ext_low=gsf_ext_low, gsf_ext_high=gsf_ext_high, #ext_range=ext_range
-                            Jtarget=0, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, 
-                            spincutModel=spincutModel, spincutPars=spincutPars)
-T_fit = gsf_fit*pow(Emid,3.)
+gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, T_in=T_fit, 
+                                                               nld_ext = nld_ext,
+                                                               trans_ext_low=trans_ext_low, trans_ext_high=trans_ext_high, #ext_range=ext_range
+                                                               Jtarget=0, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, 
+                                                               spincutModel=spincutModel, spincutPars=spincutPars)
+T_fit = 2*np.pi*gsf_fit*pow(Emid,3.) # for completenes, calculate this, too
 
 # load "true" gsf
 gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")
 gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
 gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
 
-normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true, rho_true_binwidth=rho_true_binwith)
+normalized_plots(rho_fit, gsf_fit, 
+                 gsf_ext_low, gsf_ext_high,
+                 rho_true=rho_true, gsf_true=gsf_true, rho_true_binwidth=rho_true_binwith)
 # normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true)
 
 # # save parameters to file
