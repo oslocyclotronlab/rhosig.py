@@ -243,9 +243,9 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
 
   def GetNormFromGgD0(Gg, D0):
     # get the normaliation, see eg. eq (26) in Larsen2011
-    return CalcIntegralSwave(Jtarget) * D0 * 1e3 / Gg  # /* Units = a1*D/G = MeV*eV*1e3/(MeV*meV) = 1 */
+    return 4*np.pi * Gg / (CalcIntegralSwave(Jtarget) * D0 * 1e3)  # /* Units = G/ (D) = meV / (eV*1e3) = 1 */
 
-  b_norm = 1./GetNormFromGgD0(Gg, D0)
+  b_norm = GetNormFromGgD0(Gg, D0)
   T_norm = T_in * b_norm * np.exp(alpha_norm * Emid)
   gsf = T_norm / (2.*np.pi*Emid**3) # here: assume dipole radiation
 
