@@ -58,7 +58,7 @@ def nld_extrapolation(Ex, nldModel, nldPars={},
 
 
 # extrapolations of the gsf
-def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
+def trans_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
     """finding and plotting extraploation of the transmission coefficient/gsf
       input parameters:
       Emid and T_fit = reference transmission coefficient to plot
@@ -71,27 +71,27 @@ def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
     """
 
     # find parameters
-    key = 'gsf_ext_low'
+    key = 'trans_ext_low'
     if key not in pars:
-        pars['gsf_ext_low']= np.array([0.99,10])
-    key = 'gsf_ext_high'
+        pars['trans_ext_low']= np.array([0.99,10])
+    key = 'trans_ext_high'
     if key not in pars:
-        pars['gsf_ext_high']= np.array([0.99,10])
+        pars['trans_ext_high']= np.array([0.99,10])
 
-    def f_gsf_ext_low(Eg, c, d):
+    def f_trans_ext_low(Eg, c, d):
         return (Eg**3) * np.exp(c*Eg+d)
 
-    def f_gsf_ext_high(Eg, a, b):
+    def f_trans_ext_high(Eg, a, b):
         return np.exp(a*Eg+b)
 
     Emin_low, Emax_low, Emin_high, Emax_high = ext_range 
     Emid_ext_low = np.linspace(Emin_low,Emax_low)
     Emid_ext_high = np.linspace(Emin_high,Emax_high)
-    ext_a, ext_b =  pars['gsf_ext_high']
-    ext_c, ext_d =  pars['gsf_ext_low']
+    ext_a, ext_b =  pars['trans_ext_high']
+    ext_c, ext_d =  pars['trans_ext_low']
 
-    gsf_ext_low = np.column_stack((Emid_ext_low, f_gsf_ext_low(Emid_ext_low, ext_c, ext_d)))
-    gsf_ext_high = np.column_stack((Emid_ext_high, f_gsf_ext_high(Emid_ext_high, ext_a, ext_b)))
+    trans_ext_low = np.column_stack((Emid_ext_low, f_trans_ext_low(Emid_ext_low, ext_c, ext_d)))
+    trans_ext_high = np.column_stack((Emid_ext_high, f_trans_ext_high(Emid_ext_high, ext_a, ext_b)))
 
     if makePlot:
         # New Figure: compare input and output NLD and gsf
@@ -101,10 +101,10 @@ def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
         # gsf
         # ax = ax_mat[1]
         ax.plot(Emid,T_fit,"o")
-        print "asd", gsf_ext_high[:,0]
-        print "low", gsf_ext_low
-        [gsf_ext_high_plt] = ax.plot(gsf_ext_high[:,0],gsf_ext_high[:,1],"r--", label="ext. high")
-        [gsf_ext_low_plt] = ax.plot(gsf_ext_low[:,0],gsf_ext_low[:,1],"b--", label="ext. high")
+        print "asd", trans_ext_high[:,0]
+        print "low", trans_ext_low
+        [trans_ext_high_plt] = ax.plot(trans_ext_high[:,0],trans_ext_high[:,1],"r--", label="ext. high")
+        [trans_ext_low_plt] = ax.plot(trans_ext_low[:,0],trans_ext_low[:,1],"b--", label="ext. high")
 
         ax.set_xlim([Emin_low,Emax_high])
         ax.set_yscale('log')
@@ -121,9 +121,9 @@ def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
             ext_c_slider_ax  = f_mat.add_axes([0.25, 0.15, 0.65, 0.03], facecolor=axis_color)
             ext_d_slider_ax  = f_mat.add_axes([0.25, 0.20, 0.65, 0.03], facecolor=axis_color)
 
-            sext_a = Slider(ext_a_slider_ax, 'a', 0., 5.0, valinit=ext_a)
+            sext_a = Slider(ext_a_slider_ax, 'a', -2., 2., valinit=ext_a)
             sext_b = Slider(ext_b_slider_ax, 'b', 0., 20.0, valinit=ext_b)
-            sext_c = Slider(ext_c_slider_ax, 'c', 0., 5.0, valinit=ext_c)
+            sext_c = Slider(ext_c_slider_ax, 'c', -2., 2., valinit=ext_c)
             sext_d = Slider(ext_d_slider_ax, 'd', 0., 20.0, valinit=ext_d)
 
             def slider_update(val):
@@ -132,13 +132,13 @@ def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
                 ext_c = sext_c.val
                 ext_d = sext_d.val
                 # save the values
-                pars['gsf_ext_low'] = np.array([ext_c,ext_d]) 
-                pars['gsf_ext_high'] = np.array([ext_a,ext_b])
+                pars['trans_ext_low'] = np.array([ext_c,ext_d]) 
+                pars['trans_ext_high'] = np.array([ext_a,ext_b])
                 # apply
-                gsf_ext_low = np.column_stack((Emid_ext_low, f_gsf_ext_low(Emid_ext_low, ext_c, ext_d)))
-                gsf_ext_high = np.column_stack((Emid_ext_high, f_gsf_ext_high(Emid_ext_high, ext_a, ext_b)))
-                gsf_ext_high_plt.set_ydata(gsf_ext_high[:,1])
-                gsf_ext_low_plt.set_ydata(gsf_ext_low[:,1])
+                trans_ext_low = np.column_stack((Emid_ext_low, f_trans_ext_low(Emid_ext_low, ext_c, ext_d)))
+                trans_ext_high = np.column_stack((Emid_ext_high, f_trans_ext_high(Emid_ext_high, ext_a, ext_b)))
+                trans_ext_high_plt.set_ydata(trans_ext_high[:,1])
+                trans_ext_low_plt.set_ydata(trans_ext_low[:,1])
                 f_mat.canvas.draw_idle()
             sext_a.on_changed(slider_update)
             sext_b.on_changed(slider_update)
@@ -155,8 +155,13 @@ def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
                 sext_d.reset()
             button.on_clicked(reset)
         plt.show()
+        # repead this, to get the values from the end of the plot
+        ext_a, ext_b =  pars['trans_ext_high']
+        ext_c, ext_d =  pars['trans_ext_low']
+        trans_ext_low = np.column_stack((Emid_ext_low, f_trans_ext_low(Emid_ext_low, ext_c, ext_d)))
+        trans_ext_high = np.column_stack((Emid_ext_high, f_trans_ext_high(Emid_ext_high, ext_a, ext_b)))
 
-    return gsf_ext_low, gsf_ext_high
+    return trans_ext_low, trans_ext_high
 
 
 # normalize the transmission coefficient extracted with the Oslo method
@@ -164,16 +169,19 @@ def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
 
 def normalizeGSF(Emid, Emid_rho, rho_in, T_in, 
                  nld_ext,
-                 gsf_ext_low, gsf_ext_high, #gsf_ext_range,
+                 trans_ext_low, trans_ext_high, #trans_ext_range,
                  Jtarget, D0, Gg, Sn, alpha_norm, spincutModel, spincutPars={}):
-  # returns normalized GSF (L=1) from an input transmission coefficient T
+  # returns normalized GSF (L=1) from an input ("shape corrected") transmission coefficient T
   # inputs:
-    # Emid, rho_in, T_in in MeV, MeV^-1, 1
+    # Emid, rho_in, T_in in MeV, MeV^-1, 1 -- important: T needs to be "shape corrected"
+    # nld_ext: extrapolation of nld
+    # trans_ext_low, high: extrapolations of T -- important: need to be "shape corrected"
     # Jtarget in 1
     # D0 in eV
     # Gg in meV
     # Sn in MeV
   # assuming dipole radiation
+      # interpolate NLD and T
 
   def SpinDist(Ex, J, model=spincutModel, pars=spincutPars):
     # Get Spin distribution given a spin-cut sigma
@@ -239,19 +247,17 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
       print "Formula needs to be extended to more Itargets; take care of Clebsh-Gordan coeffs"
       error() # todo - throw error
 
-    # interpolate NLD and T
     frho_exp = interp1d(Emid_rho,rho_in) # defualt: linear interpolation
     fnld_ext = interp1d(nld_ext[:,0], nld_ext[:,1])  # default:linear interpolation
 
     fT_exp   = interp1d(Emid, T_in)  # default:linear interpolation
-    fgsf_ext_low = interp1d(gsf_ext_low[:,0], gsf_ext_low[:,1])  # default:linear interpolation
-    fgsf_ext_high = interp1d(gsf_ext_high[:,0], gsf_ext_high[:,1])  # default:linear interpolation
+    ftrans_ext_low = interp1d(trans_ext_low[:,0], trans_ext_low[:,1])  # default:linear interpolation
+    ftrans_ext_high = interp1d(trans_ext_high[:,0], trans_ext_high[:,1])  # default:linear interpolation
 
     # compose nld and transmission coefficient function of data & extrapolation
     # extapolate "around" dataset 
     def frho(E):
       if E <= Emid_rho[-1]:
-        print E, Emid_rho[0]
         val = frho_exp(E)
       else:
         val = fnld_ext(E)
@@ -259,11 +265,11 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
 
     def fT(E):
       if E < Emid[0]:
-        val = fgsf_ext_low(E)
+        val = ftrans_ext_low(E)
       elif E <= Emid[-1]:
         val = fT_exp(E)
       else:
-        val = fgsf_ext_high(E)
+        val = ftrans_ext_high(E)
       return val
 
     # calculate integral
@@ -283,17 +289,21 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
 
   def GetNormFromGgD0(Gg, D0):
     # get the normaliation, see eg. eq (26) in Larsen2011
-    return 4*np.pi * Gg / (CalcIntegralSwave(Jtarget) * D0 * 1e3)  # /* Units = G/ (D) = meV / (eV*1e3) = 1 */
+    return 4.*np.pi * Gg / (CalcIntegralSwave(Jtarget) * D0 * 1e3)  # /* Units = G/ (D) = meV / (eV*1e3) = 1 */
 
   b_norm = GetNormFromGgD0(Gg, D0)
-  T_norm = T_in * b_norm * np.exp(alpha_norm * Emid)
+  T_norm = T_in * b_norm #* np.exp(alpha_norm * Emid)
   gsf = T_norm / (2.*np.pi*Emid**3) # here: assume dipole radiation
+
+  trans_ext_low[:,1] *= b_norm #* np.exp(alpha_norm * trans_ext_low[:,0])
+  trans_ext_high[:,1] *= b_norm #* np.exp(alpha_norm * trans_ext_high[:,0])
+  gsf_ext_low = trans_ext_low
+  gsf_ext_high = trans_ext_high
+  gsf_ext_low[:,1] /= 2.*np.pi* np.power(gsf_ext_low[:,0],3.)
+  gsf_ext_high[:,1] /= 2.*np.pi* np.power(gsf_ext_high[:,0],3.)
 
   print "alpha_norm: {0}".format(alpha_norm)
   print "b_norm: {0}".format(b_norm)
 
-  print np.exp(alpha_norm * Emid)
-
-  print gsf
-  return gsf
+  return gsf, b_norm, gsf_ext_low, gsf_ext_high
   
