@@ -5,15 +5,15 @@ import sys
 # normalization of NLD and GSF with the Oslo method
 
 # Normalization of the NLD
-def normalizeNLD(E1, nldE1, E2, nldE2, Emid, rho):
+def normalizeNLD(E1, nldE1, E2, nldE2, Emid_rho, rho):
   # normalization of the NLD according to the transformation eq (3), Schiller2000
   # iputs: unnormalized nld rho, and their mid-energy bins Emid
   #        E1(2) and nldE1(2): normalization points: Energy and NLD
 
   # find corresponding energy bins of E1 and E2
-  i_E1 = (np.abs(Emid-E1)).argmin()
-  i_E2 = (np.abs(Emid-E2)).argmin()
-  print i_E1, i_E2
+  i_E1 = (np.abs(Emid_rho-E1)).argmin()
+  i_E2 = (np.abs(Emid_rho-E2)).argmin()
+  print i_E1, i_E2, Emid_rho[i_E1], Emid_rho[i_E2]
 
   # find alpha and A from the normalization points
   alpha = np.log( (nldE2 * rho[i_E1]) / (nldE1*rho[i_E2]) ) / (E2-E1)
@@ -22,14 +22,14 @@ def normalizeNLD(E1, nldE1, E2, nldE2, Emid, rho):
   print "Normalization parameters: \n alpha={0:1.2e} \t A={1:1.2e} ".format(alpha, A)
 
   # apply the transformation
-  rho *= A * np.exp(alpha*Emid)
+  rho *= A * np.exp(alpha*Emid_rho)
   return rho, alpha, A
 
 
 # normalize the transmission coefficient extracted with the Oslo method
 # to the average total radiative width <Gg>
 
-def normalizeGSF(Emid, rho_in, T_in, Jtarget, D0, Gg, Sn, alpha_norm, spincutModel, spincutPars={}):
+def normalizeGSF(Emid, Emid_rho,rho_in, T_in, Jtarget, D0, Gg, Sn, alpha_norm, spincutModel, spincutPars={}):
   # returns normalized GSF (L=1) from an input transmission coefficient T
   # inputs:
     # Emid, rho_in, T_in in MeV, MeV^-1, 1
@@ -104,8 +104,11 @@ def normalizeGSF(Emid, rho_in, T_in, Jtarget, D0, Gg, Sn, alpha_norm, spincutMod
       error() # todo - throw error
 
     # interpolate NLD and T
-    rho = interp1d(Emid,rho_in, bounds_error=False, fill_value=0) # defualt: linear interpolation
+    rho = interp1d(Emid_rho,rho_in, bounds_error=False, fill_value=0) # defualt: linear interpolation
     T   = interp1d(Emid, T_in, bounds_error=False, fill_value=0)  # default:linear interpolation
+
+    print "RHOS", rho(1), rho(2), rho(2.5)
+    print "T", T(1), T(2), T(2.5), T(3.5)
 
     # calculate integral
     Eint_min = 0
@@ -116,15 +119,15 @@ def normalizeGSF(Emid, rho_in, T_in, Jtarget, D0, Gg, Sn, alpha_norm, spincutMod
     norm = 0
     for Eg in Eintegral:
         Ex = Sn - Eg
-        if Eg<=Emid[0]: print "warning: Eg < {0}; check rho interpolate".format(Emid[0])
-        if Ex<=Emid[0]: print "warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid[0])
+        if Eg<=Emid_rho[0]: print "warning: Eg < {0}; check rho interpolate".format(Emid_rho[0])
+        if Ex<=Emid_rho[0]: print "warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0])
         norm += T(Eg) * rho(Ex) * (SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5) )
       
     return norm * stepSize
 
   def GetNormFromGgD0(Gg, D0):
     # get the normaliation, see eg. eq (26) in Larsen2011
-    return CalcIntegralSwave(Jtarget) * D0 / Gg  # /* Units = a1*D/G = keV*eV/(MeV*meV) = 1 */
+    return CalcIntegralSwave(Jtarget) * D0 * 1e3 / Gg  # /* Units = a1*D/G = MeV*eV*1e3/(MeV*meV) = 1 */
 
   b_norm = 1./GetNormFromGgD0(Gg, D0)
   T_norm = T_in * b_norm * np.exp(alpha_norm * Emid)
@@ -135,5 +138,6 @@ def normalizeGSF(Emid, rho_in, T_in, Jtarget, D0, Gg, Sn, alpha_norm, spincutMod
 
   print np.exp(alpha_norm * Emid)
 
+  print gsf
   return gsf
   
