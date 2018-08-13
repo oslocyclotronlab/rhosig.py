@@ -12,7 +12,7 @@ import utilities as ut
 # Analysis of first generations matrix
 # by Oslo Method
 
-def rsg_plots(rho_fit, T_fit, P_in, rho_true=None):
+def rsg_plots(rho_fit, T_fit, P_in, nld_ext=None, rho_true=None):
 	# creates 
     # gsf_fit = T_fit/pow(Emid,3)  # assuming dipoles only
     # New Figure: Oslo type matrix
@@ -42,6 +42,7 @@ def rsg_plots(rho_fit, T_fit, P_in, rho_true=None):
     f_mat, ax = plt.subplots(1,1)
 
     # NLD
+    if nld_ext!=None: ax.plot(nld_ext[:,0],nld_ext[:,1],"b--")
     if rho_true!=None: ax.plot(Emid_rho,rho_true)
     ax.plot(Emid_rho,rho_fit,"o")
 
@@ -66,7 +67,7 @@ def normalized_plots(rho_fit, gsf_fit, rho_true=None, rho_true_binwidth=None, gs
 
     # gsf
     ax = ax_mat[1]
-    if gsf_true!=None: ax.plot(Emid,gsf_true)
+    if gsf_true!=None: ax.plot(gsf_true[:,0],gsf_true[:,1])
     ax.plot(Emid,gsf_fit,"o")
 
     ax.set_yscale('log')
@@ -197,7 +198,25 @@ rho_true, rho_true_binwith = load_NLDtrue()
 # normalize
 rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid_rho=Emid_rho, rho=rho_fit)
 
-rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=None)
+# extrapolation
+ext_range = np.array([2.5,7.])
+nldPars = dict()
+# find parameters
+nldModel="CT"
+key = 'nld_CT'
+if key not in pars:
+    pars['nld_CT']= np.array([0.425,-0.456])
+
+nldPars['T'], nldPars['Eshift'] = pars['nld_CT']
+
+# extrapolations of the gsf
+Emid_ = np.linspace(ext_range[0],ext_range[1])
+nld_ext = norm.nld_extrapolation(Emid_,
+                             nldModel=nldModel, nldPars=nldPars,
+                             makePlot=makePlot)
+
+
+rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, nld_ext=nld_ext, rho_true=None)
 # rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
 
 ## normalization of the gsf
@@ -217,7 +236,6 @@ spincutPars={"mass":240, "NLDa":25.16, "Eshift":0.12} # some dummy values
 D0 = 2.2 # eV 
 Gg = 34. # meV --> div by 2.3 due to RAINIER input model
 Sn = 6.534 # work-around for now! -- until energy calibration is set!
-# Sn = Emid[-1] # work-around for now! -- until energy calibration is set!
 
 # extrapolations
 ext_range = np.array([0,3.,4., Sn+1])
@@ -229,12 +247,18 @@ gsf_ext_low, gsf_ext_high = norm.gsf_extrapolation(Emid, T_fit=T_fit*np.exp(alph
 ###################################################################
 
 gsf_fit = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, T_in=T_fit, 
-                            ext_low=gsf_ext_low, ext_high=gsf_ext_high, #ext_range=ext_range
+                            nld_ext = nld_ext,
+                            gsf_ext_low=gsf_ext_low, gsf_ext_high=gsf_ext_high, #ext_range=ext_range
                             Jtarget=0, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, 
                             spincutModel=spincutModel, spincutPars=spincutPars)
 T_fit = gsf_fit*pow(Emid,3.)
 
-normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, rho_true_binwidth=rho_true_binwith)
+# load "true" gsf
+gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")
+gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
+gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
+
+normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true, rho_true_binwidth=rho_true_binwith)
 # normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true)
 
 # # save parameters to file

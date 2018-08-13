@@ -27,6 +27,35 @@ def normalizeNLD(E1, nldE1, E2, nldE2, Emid_rho, rho):
   rho *= A * np.exp(alpha*Emid_rho)
   return rho, alpha, A
 
+# extrapolations of the gsf
+def nld_extrapolation(Ex, nldModel, nldPars={},
+                      makePlot=True):
+
+    def GetExtrapolation(Ex, model=nldModel, pars=nldPars):
+      # Get Extrapolation values
+
+      # different extrapolation models
+      def CT(T, Eshift): 
+      # constant temperature
+        return np.exp((Ex-Eshift) / T) / T;
+
+      # call a model
+      def CallModel(fun,pars,pars_req):
+        if pars_req <= set(pars): # is the required parameters are a subset of all pars given
+            return fun(**pars)
+        else:
+            raise TypeError("Error: Need following arguments for this method: {0}".format(pars_req))
+
+      if model=="CT": 
+        pars_req = {"T", "Eshift"}
+        return CallModel(CT,pars,pars_req)
+      else:
+        raise TypeError("\nError: NLD model not supported; check spelling\n")
+        return 1.
+
+    nld_ext = GetExtrapolation(Ex)
+    return np.column_stack((Ex,nld_ext))
+
 
 # extrapolations of the gsf
 def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
@@ -134,7 +163,8 @@ def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
 # to the average total radiative width <Gg>
 
 def normalizeGSF(Emid, Emid_rho, rho_in, T_in, 
-                 ext_low, ext_high, #ext_range,
+                 nld_ext,
+                 gsf_ext_low, gsf_ext_high, #gsf_ext_range,
                  Jtarget, D0, Gg, Sn, alpha_norm, spincutModel, spincutPars={}):
   # returns normalized GSF (L=1) from an input transmission coefficient T
   # inputs:
@@ -210,25 +240,35 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
       error() # todo - throw error
 
     # interpolate NLD and T
-    rho = interp1d(Emid_rho,rho_in, bounds_error=False, fill_value=0) # defualt: linear interpolation
-    fT_exp   = interp1d(Emid, T_in)  # default:linear interpolation
-    fext_low = interp1d(ext_low[:,0], ext_low[:,1])  # default:linear interpolation
-    fext_high = interp1d(ext_high[:,0], ext_high[:,1])  # default:linear interpolation
+    frho_exp = interp1d(Emid_rho,rho_in) # defualt: linear interpolation
+    fnld_ext = interp1d(nld_ext[:,0], nld_ext[:,1])  # default:linear interpolation
 
-    # compose transmission coefficient function of data & extrapolation
+    fT_exp   = interp1d(Emid, T_in)  # default:linear interpolation
+    fgsf_ext_low = interp1d(gsf_ext_low[:,0], gsf_ext_low[:,1])  # default:linear interpolation
+    fgsf_ext_high = interp1d(gsf_ext_high[:,0], gsf_ext_high[:,1])  # default:linear interpolation
+
+    # compose nld and transmission coefficient function of data & extrapolation
     # extapolate "around" dataset 
+    def frho(E):
+      if E <= Emid_rho[-1]:
+        print E, Emid_rho[0]
+        val = frho_exp(E)
+      else:
+        val = fnld_ext(E)
+      return val
+
     def fT(E):
       if E < Emid[0]:
-        val = fext_low(E)
+        val = fgsf_ext_low(E)
       elif E <= Emid[-1]:
         val = fT_exp(E)
       else:
-        val = fext_high(E)
+        val = fgsf_ext_high(E)
       return val
 
     # calculate integral
     Eint_min = 0
-    Eint_max = Sn + Exres # following routine by Magne; Exres is the energy resolution (of SiRi)
+    Eint_max = Sn # Sn + Exres # following routine by Magne; Exres is the energy resolution (of SiRi)
     Eintegral, stepSize = np.linspace(Eint_min,Eint_max,num=100, retstep=True) # number of interpolation points 
 
     #  if(Jtarget == 0.0){      /*I_i = 1/2 => I_f = 1/2, 3/2 */
@@ -237,7 +277,7 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
         Ex = Sn - Eg
         if Eg<=Emid_rho[0]: print "warning: Eg < {0}; check rho interpolate".format(Emid_rho[0])
         if Ex<=Emid_rho[0]: print "warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0])
-        norm += fT(Eg) * rho(Ex) * (SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5) )
+        norm += fT(Eg) * frho(Ex) * (SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5) )
       
     return norm * stepSize
 
