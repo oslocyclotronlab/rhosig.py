@@ -1,12 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from StringIO import StringIO
+import json_tricks as json # can handle np arrays
 
 import rhosig as rsg
 import generateRhoT as gen
 import normalization as norm
 
 import utilities as ut
+
 # Analysis of first generations matrix
 # by Oslo Method
 
@@ -74,12 +76,22 @@ def normalized_plots(rho_fit, gsf_fit, rho_true=None, rho_true_binwidth=None, gs
     plt.show()
 
 # running the program
+interactive = True
+makePlot = True
 
 print "Use exp 1Gen matrix"
 # load experimential data
 fname1Gen = "1Gen.m"
 data = np.loadtxt(fname1Gen, comments="!")
 print "loaded data"
+
+# try loading parameter file
+try:
+    with open("parameters.json", "r") as read_file:
+        pars = json.load(read_file)
+    print pars
+except IOError:
+    pars = dict()
 
 # select fit region by hand
 # important: for now, need to adjust Nbins further down!
@@ -202,14 +214,29 @@ spincutPars={"mass":240, "NLDa":25.16, "Eshift":0.12} # some dummy values
 # D0 in eV
 # Gg in meV
 # Sn in MeV
-D0 = 3.36e3 # eV 
-Gg = 1900/2.3 # meV --> div by 2.3 due to RAINIER input model
+D0 = 2.2 # eV 
+Gg = 34. # meV --> div by 2.3 due to RAINIER input model
 Sn = 6.534 # work-around for now! -- until energy calibration is set!
+# Sn = Emid[-1] # work-around for now! -- until energy calibration is set!
 
-gsf_fit = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, T_in=T_fit, Jtarget=0, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, spincutModel=spincutModel, spincutPars=spincutPars)
+# extrapolations
+ext_range = np.array([0,3.,4., Sn+1])
+gsf_ext_low, gsf_ext_high = norm.gsf_extrapolation(Emid, T_fit=T_fit*np.exp(alpha_norm * Emid), 
+                                                   pars=pars, ext_range=ext_range,
+                                                   makePlot=makePlot, interactive=interactive)
+
+############
+###################################################################
+
+gsf_fit = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, T_in=T_fit, 
+                            ext_low=gsf_ext_low, ext_high=gsf_ext_high, #ext_range=ext_range
+                            Jtarget=0, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, 
+                            spincutModel=spincutModel, spincutPars=spincutPars)
 T_fit = gsf_fit*pow(Emid,3.)
 
 normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, rho_true_binwidth=rho_true_binwith)
 # normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true)
 
-rsg_plots(rho_fit, gsf_fit/pow(Emid,3.), P_in=oslo_matrix, rho_true=None)
+# # save parameters to file
+with open("parameters.json", "w") as write_file:
+    json.dump(pars, write_file)

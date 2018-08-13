@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.interpolate import interp1d
 import sys
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider, Button, RadioButtons
 
 # normalization of NLD and GSF with the Oslo method
 
@@ -26,10 +28,114 @@ def normalizeNLD(E1, nldE1, E2, nldE2, Emid_rho, rho):
   return rho, alpha, A
 
 
+# extrapolations of the gsf
+def gsf_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
+    """finding and plotting extraploation of the transmission coefficient/gsf
+      input parameters:
+      Emid and T_fit = reference transmission coefficient to plot
+      pars: dictionary with saved parameters, if existing
+      ext_range: (plot) range for extrapolation
+      makePlot: flag for creating plots
+      interactive: flag for to enable interactive change of pars
+
+      return: np.array of lower extrapolation, np.array of lower extrapolation
+    """
+
+    # find parameters
+    key = 'gsf_ext_low'
+    if key not in pars:
+        pars['gsf_ext_low']= np.array([0.99,10])
+    key = 'gsf_ext_high'
+    if key not in pars:
+        pars['gsf_ext_high']= np.array([0.99,10])
+
+    def f_gsf_ext_low(Eg, c, d):
+        return (Eg**3) * np.exp(c*Eg+d)
+
+    def f_gsf_ext_high(Eg, a, b):
+        return np.exp(a*Eg+b)
+
+    Emin_low, Emax_low, Emin_high, Emax_high = ext_range 
+    Emid_ext_low = np.linspace(Emin_low,Emax_low)
+    Emid_ext_high = np.linspace(Emin_high,Emax_high)
+    ext_a, ext_b =  pars['gsf_ext_high']
+    ext_c, ext_d =  pars['gsf_ext_low']
+
+    gsf_ext_low = np.column_stack((Emid_ext_low, f_gsf_ext_low(Emid_ext_low, ext_c, ext_d)))
+    gsf_ext_high = np.column_stack((Emid_ext_high, f_gsf_ext_high(Emid_ext_high, ext_a, ext_b)))
+
+    if makePlot:
+        # New Figure: compare input and output NLD and gsf
+        f_mat, ax = plt.subplots()
+        plt.subplots_adjust(left=0.25, bottom=0.35)
+
+        # gsf
+        # ax = ax_mat[1]
+        ax.plot(Emid,T_fit,"o")
+        print "asd", gsf_ext_high[:,0]
+        print "low", gsf_ext_low
+        [gsf_ext_high_plt] = ax.plot(gsf_ext_high[:,0],gsf_ext_high[:,1],"r--", label="ext. high")
+        [gsf_ext_low_plt] = ax.plot(gsf_ext_low[:,0],gsf_ext_low[:,1],"b--", label="ext. high")
+
+        ax.set_xlim([Emin_low,Emax_high])
+        ax.set_yscale('log')
+        ax.set_xlabel(r"$E_\gamma \, \mathrm{(MeV)}$")
+        ax.set_ylabel(r'$transmission coeff [1]$')
+
+        legend = ax.legend()
+
+        if interactive:
+            # Define an axes area and draw a slider in it
+            axis_color = 'lightgoldenrodyellow'
+            ext_a_slider_ax  = f_mat.add_axes([0.25, 0.05, 0.65, 0.03], facecolor=axis_color)
+            ext_b_slider_ax  = f_mat.add_axes([0.25, 0.10, 0.65, 0.03], facecolor=axis_color)
+            ext_c_slider_ax  = f_mat.add_axes([0.25, 0.15, 0.65, 0.03], facecolor=axis_color)
+            ext_d_slider_ax  = f_mat.add_axes([0.25, 0.20, 0.65, 0.03], facecolor=axis_color)
+
+            sext_a = Slider(ext_a_slider_ax, 'a', 0., 5.0, valinit=ext_a)
+            sext_b = Slider(ext_b_slider_ax, 'b', 0., 20.0, valinit=ext_b)
+            sext_c = Slider(ext_c_slider_ax, 'c', 0., 5.0, valinit=ext_c)
+            sext_d = Slider(ext_d_slider_ax, 'd', 0., 20.0, valinit=ext_d)
+
+            def slider_update(val):
+                ext_a = sext_a.val
+                ext_b = sext_b.val
+                ext_c = sext_c.val
+                ext_d = sext_d.val
+                # save the values
+                pars['gsf_ext_low'] = np.array([ext_c,ext_d]) 
+                pars['gsf_ext_high'] = np.array([ext_a,ext_b])
+                # apply
+                gsf_ext_low = np.column_stack((Emid_ext_low, f_gsf_ext_low(Emid_ext_low, ext_c, ext_d)))
+                gsf_ext_high = np.column_stack((Emid_ext_high, f_gsf_ext_high(Emid_ext_high, ext_a, ext_b)))
+                gsf_ext_high_plt.set_ydata(gsf_ext_high[:,1])
+                gsf_ext_low_plt.set_ydata(gsf_ext_low[:,1])
+                f_mat.canvas.draw_idle()
+            sext_a.on_changed(slider_update)
+            sext_b.on_changed(slider_update)
+            sext_c.on_changed(slider_update)
+            sext_d.on_changed(slider_update)
+
+            resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
+            button = Button(resetax, 'Reset', color=axis_color, hovercolor='0.975')
+
+            def reset(event):
+                sext_a.reset()
+                sext_b.reset()
+                sext_c.reset()
+                sext_d.reset()
+            button.on_clicked(reset)
+        plt.show()
+
+    return gsf_ext_low, gsf_ext_high
+
+
 # normalize the transmission coefficient extracted with the Oslo method
 # to the average total radiative width <Gg>
 
-def normalizeGSF(Emid, Emid_rho,rho_in, T_in, Jtarget, D0, Gg, Sn, alpha_norm, spincutModel, spincutPars={}):
+def normalizeGSF(Emid, Emid_rho, rho_in, T_in, 
+                 ext_low, ext_high, #ext_range,
+                 Jtarget, D0, Gg, Sn, alpha_norm, spincutModel, spincutPars={}):
   # returns normalized GSF (L=1) from an input transmission coefficient T
   # inputs:
     # Emid, rho_in, T_in in MeV, MeV^-1, 1
@@ -105,23 +211,33 @@ def normalizeGSF(Emid, Emid_rho,rho_in, T_in, Jtarget, D0, Gg, Sn, alpha_norm, s
 
     # interpolate NLD and T
     rho = interp1d(Emid_rho,rho_in, bounds_error=False, fill_value=0) # defualt: linear interpolation
-    T   = interp1d(Emid, T_in, bounds_error=False, fill_value=0)  # default:linear interpolation
+    fT_exp   = interp1d(Emid, T_in)  # default:linear interpolation
+    fext_low = interp1d(ext_low[:,0], ext_low[:,1])  # default:linear interpolation
+    fext_high = interp1d(ext_high[:,0], ext_high[:,1])  # default:linear interpolation
 
-    print "RHOS", rho(1), rho(2), rho(2.5)
-    print "T", T(1), T(2), T(2.5), T(3.5)
+    # compose transmission coefficient function of data & extrapolation
+    # extapolate "around" dataset 
+    def fT(E):
+      if E < Emid[0]:
+        val = fext_low(E)
+      elif E <= Emid[-1]:
+        val = fT_exp(E)
+      else:
+        val = fext_high(E)
+      return val
 
     # calculate integral
     Eint_min = 0
     Eint_max = Sn + Exres # following routine by Magne; Exres is the energy resolution (of SiRi)
     Eintegral, stepSize = np.linspace(Eint_min,Eint_max,num=100, retstep=True) # number of interpolation points 
-   
+
     #  if(Jtarget == 0.0){      /*I_i = 1/2 => I_f = 1/2, 3/2 */
     norm = 0
     for Eg in Eintegral:
         Ex = Sn - Eg
         if Eg<=Emid_rho[0]: print "warning: Eg < {0}; check rho interpolate".format(Emid_rho[0])
         if Ex<=Emid_rho[0]: print "warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0])
-        norm += T(Eg) * rho(Ex) * (SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5) )
+        norm += fT(Eg) * rho(Ex) * (SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5) )
       
     return norm * stepSize
 
