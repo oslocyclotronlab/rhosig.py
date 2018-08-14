@@ -200,9 +200,6 @@ rho_true, rho_true_binwith = load_NLDtrue()
 # normalize
 rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid_rho=Emid_rho, rho=rho_fit)
 
-# apply "shape" correction to T
-T_fit *=  np.exp(alpha_norm * Emid)
-
 # extrapolation
 ext_range = np.array([2.5,7.])
 nldPars = dict()
@@ -238,34 +235,40 @@ spincutPars={"mass":240, "NLDa":25.16, "Eshift":0.12} # some dummy values
 # D0 in eV
 # Gg in meV
 # Sn in MeV
+Jtarget = 1/2
 D0 = 2.2 # eV 
 Gg = 34. # meV --> div by 2.3 due to RAINIER input model
 Sn = 6.534 # work-around for now! -- until energy calibration is set!
 
 # extrapolations
-ext_range = np.array([0,3.,4., Sn+1])
-trans_ext_low, trans_ext_high = norm.trans_extrapolation(Emid, T_fit=T_fit, 
-                                                   pars=pars, ext_range=ext_range,
-                                                   makePlot=makePlot, interactive=interactive)
+gsf_ext_range = np.array([0,3.,4., Sn+1])
+# trans_ext_low, trans_ext_high = norm.trans_extrapolation(Emid, T_fit=T_fit, 
+#                                                    pars=pars, ext_range=ext_range,
+#                                                    makePlot=makePlot, interactive=interactive)
 
 ############
 ###################################################################
+# calculate the gsf
+# assumption: Dipole transition only (therefore: E^(2L+1) -> E^3)
+gsf_fit = T_fit/(2*np.pi*pow(Emid,3.))
 
-gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, T_in=T_fit, 
+# assumptions in normalization: swave (currently)
+gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, gsf_in=gsf_fit, 
                                                                nld_ext = nld_ext,
-                                                               trans_ext_low=trans_ext_low, trans_ext_high=trans_ext_high, #ext_range=ext_range
-                                                               Jtarget=0, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, 
-                                                               spincutModel=spincutModel, spincutPars=spincutPars)
+                                                               gsf_ext_range=gsf_ext_range, pars=pars,
+                                                               Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, 
+                                                               spincutModel=spincutModel, spincutPars=spincutPars,
+                                                               makePlot=makePlot, interactive=interactive)
 T_fit = 2*np.pi*gsf_fit*pow(Emid,3.) # for completenes, calculate this, too
 
-# load "true" gsf
-gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")
-gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
-gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
+# # load "true" gsf
+# gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")
+# gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
+# gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
 
-normalized_plots(rho_fit, gsf_fit, 
-                 gsf_ext_low, gsf_ext_high,
-                 rho_true=rho_true, gsf_true=gsf_true, rho_true_binwidth=rho_true_binwith)
+# normalized_plots(rho_fit, gsf_fit, 
+#                  gsf_ext_low, gsf_ext_high,
+#                  rho_true=rho_true, gsf_true=gsf_true, rho_true_binwidth=rho_true_binwith)
 # normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true)
 
 # # save parameters to file
