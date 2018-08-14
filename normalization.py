@@ -15,13 +15,13 @@ def normalizeNLD(E1, nldE1, E2, nldE2, Emid_rho, rho):
   # find corresponding energy bins of E1 and E2
   i_E1 = (np.abs(Emid_rho-E1)).argmin()
   i_E2 = (np.abs(Emid_rho-E2)).argmin()
-  print i_E1, i_E2, Emid_rho[i_E1], Emid_rho[i_E2]
+  print(i_E1, i_E2, Emid_rho[i_E1], Emid_rho[i_E2])
 
   # find alpha and A from the normalization points
   alpha = np.log( (nldE2 * rho[i_E1]) / (nldE1*rho[i_E2]) ) / (E2-E1)
   A = nldE2 / rho[i_E2] * np.exp(- alpha * E2)
-  print A
-  print "Normalization parameters: \n alpha={0:1.2e} \t A={1:1.2e} ".format(alpha, A)
+  print(A)
+  print("Normalization parameters: \n alpha={0:1.2e} \t A={1:1.2e} ".format(alpha, A))
 
   # apply the transformation
   rho *= A * np.exp(alpha*Emid_rho)
@@ -101,8 +101,8 @@ def trans_extrapolation(Emid, T_fit, pars, ext_range, makePlot,interactive):
         # gsf
         # ax = ax_mat[1]
         ax.plot(Emid,T_fit,"o")
-        print "asd", trans_ext_high[:,0]
-        print "low", trans_ext_low
+        print("asd", trans_ext_high[:,0])
+        print("low", trans_ext_low)
         [trans_ext_high_plt] = ax.plot(trans_ext_high[:,0],trans_ext_high[:,1],"r--", label="ext. high")
         [trans_ext_low_plt] = ax.plot(trans_ext_low[:,0],trans_ext_low[:,1],"b--", label="ext. high")
 
@@ -244,7 +244,7 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
     # Calculate normalization integral, see eg. eq (26) in Larsen2011
     
     if Jtarget != 0: 
-      print "Formula needs to be extended to more Itargets; take care of Clebsh-Gordan coeffs"
+      print("Formula needs to be extended to more Itargets; take care of Clebsh-Gordan coeffs")
       error() # todo - throw error
 
     frho_exp = interp1d(Emid_rho,rho_in) # defualt: linear interpolation
@@ -281,8 +281,8 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
     norm = 0
     for Eg in Eintegral:
         Ex = Sn - Eg
-        if Eg<=Emid_rho[0]: print "warning: Eg < {0}; check rho interpolate".format(Emid_rho[0])
-        if Ex<=Emid_rho[0]: print "warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0])
+        if Eg<=Emid_rho[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_rho[0]))
+        if Ex<=Emid_rho[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0]))
         norm += fT(Eg) * frho(Ex) * (SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5) )
       
     return norm * stepSize
@@ -302,8 +302,8 @@ def normalizeGSF(Emid, Emid_rho, rho_in, T_in,
   gsf_ext_low[:,1] /= 2.*np.pi* np.power(gsf_ext_low[:,0],3.)
   gsf_ext_high[:,1] /= 2.*np.pi* np.power(gsf_ext_high[:,0],3.)
 
-  print "alpha_norm: {0}".format(alpha_norm)
-  print "b_norm: {0}".format(b_norm)
+  print("alpha_norm: {0}".format(alpha_norm))
+  print("b_norm: {0}".format(b_norm))
 
   return gsf, b_norm, gsf_ext_low, gsf_ext_high
   

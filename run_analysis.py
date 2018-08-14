@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from StringIO import StringIO
+from io import StringIO
 import json_tricks as json # can handle np arrays
 
 import rhosig as rsg
@@ -42,8 +42,8 @@ def rsg_plots(rho_fit, T_fit, P_in, nld_ext=None, rho_true=None):
     f_mat, ax = plt.subplots(1,1)
 
     # NLD
-    if nld_ext!=None: ax.plot(nld_ext[:,0],nld_ext[:,1],"b--")
-    if rho_true!=None: ax.plot(Emid_rho,rho_true)
+    if nld_ext is not None: ax.plot(nld_ext[:,0],nld_ext[:,1],"b--")
+    if rho_true is not None: ax.plot(Emid_rho,rho_true)
     ax.plot(Emid_rho,rho_fit,"o")
 
     ax.set_yscale('log')
@@ -58,7 +58,7 @@ def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, rho_true=None,
 
     # NLD
     ax = ax_mat[0]
-    if rho_true!=None: ax.step(np.append(-rho_true_binwidth,rho_true[:-1,0])+rho_true_binwidth/2.,np.append(0,rho_true[:-1,1]), "k", where="pre",label="input NLD, binned")
+    if rho_true is not None: ax.step(np.append(-rho_true_binwidth,rho_true[:-1,0])+rho_true_binwidth/2.,np.append(0,rho_true[:-1,1]), "k", where="pre",label="input NLD, binned")
     ax.plot(Emid_rho,rho_fit,"o")
 
     ax.set_yscale('log')
@@ -67,7 +67,7 @@ def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, rho_true=None,
 
     # gsf
     ax = ax_mat[1]
-    if gsf_true!=None: ax.plot(gsf_true[:,0],gsf_true[:,1])
+    if gsf_true is not None: ax.plot(gsf_true[:,0],gsf_true[:,1])
     ax.plot(Emid,gsf_fit,"o")
     [gsf_ext_high_plt] = ax.plot(gsf_ext_high[:,0],gsf_ext_high[:,1],"r--", label="ext. high")
     [gsf_ext_low_plt] = ax.plot(gsf_ext_low[:,0],gsf_ext_low[:,1],"b--", label="ext. high")
@@ -82,17 +82,17 @@ def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, rho_true=None,
 interactive = True
 makePlot = True
 
-print "Use exp 1Gen matrix"
+print("Use exp 1Gen matrix")
 # load experimential data
 fname1Gen = "1Gen.m"
 data = np.loadtxt(fname1Gen, comments="!")
-print "loaded data"
+print("loaded data")
 
 # try loading parameter file
 try:
     with open("parameters.json", "r") as read_file:
         pars = json.load(read_file)
-    print pars
+    print(pars)
 except IOError:
     pars = dict()
 
@@ -107,27 +107,27 @@ def EmidsFromMama(fname):
 
     # calibration coefficients in MeV
     # cal0 + cal1*ch + cal2*ch**2 for x and y
-    f = open(fname)
+    f = open(fname, encoding='utf8')
     lines = f.readlines()
-    print lines[6]
+    print(lines[6])
     cal = np.genfromtxt(StringIO(lines[6]),dtype=object, delimiter=",")
-    if cal[0]!="!CALIBRATION EkeV=6":
+    if cal[0].decode('UTF8')!="!CALIBRATION EkeV=6":
         raise ValueError("Could not read calibration")
     cal = cal[1:].astype("float64")
     cal *= 1e-3 # keV -> MeV
     xcal = cal[:3]
     ycal = cal[3:]
-    print "Calibration read from mama: \n xcal{0} \t ycal {1}".format(xcal, ycal)
+    print("Calibration read from mama: \n xcal{0} \t ycal {1}".format(xcal, ycal))
     # workaround until implemented otherwise
     if np.any(xcal!=ycal):
         raise ValueError("For now, require xcal = ycal, otherwise Emid needs to be adjusted")
     
     # read channel numbers
-    print lines[8]
-    line = lines[8].replace(b':',b',') # replace ":"" as delimiter by ","
+    line = lines[8].replace(':',',') # replace ":"" as delimiter by ","
     nChs = np.genfromtxt(StringIO(line),dtype=object, delimiter=",")
-    print "Channels read from mama: \n nChx{0} \t nChy {1}".format(nChs[1:3], nChs[3:])
-    if nChs[0]!="!DIMENSION=2":
+    print("Channels read from mama: \n nChx{0} \t nChy {1}".format(nChs[1:3], nChs[3:]))
+    print(nChs[0])
+    if nChs[0].decode('UTF8')!="!DIMENSION=2":
         raise ValueError("Could not read calibration")
     nChs = nChs[1:].astype("int")
     if nChs[0]!=0 or nChs[2]!=0:
@@ -137,7 +137,7 @@ def EmidsFromMama(fname):
     if nChx!=nChy:
         raise ValueError("For now, require nChx = nChy, otherwise Emid needs to be adjusted")
 
-    Emid = np.array(range(nChx)) # Emid = [0, 1, 2,..., nChx-1]
+    Emid = np.array(list(range(nChx))) # Emid = [0, 1, 2,..., nChx-1]
     Emid = xcal[0] + xcal[1] * Emid + xcal[2] * Emid**2
 
     if xcal[0]!=0 or xcal[0]!=0 or ycal[0]!=0 or ycal[0]!=0:
@@ -183,7 +183,7 @@ def load_NLDtrue(fdisc="compare/240Pu/NLD_exp_disc.dat", fcont="compare/240Pu/NL
     NLD_true_cont = np.loadtxt(fcont)
     # apply same binwidth to continuum states
     binwidth_goal = NLD_true_disc[1,0]-NLD_true_disc[0,0]
-    print binwidth_goal
+    print(binwidth_goal)
     binwidth_cont = NLD_true_cont[1,0]-NLD_true_cont[0,0]
     Emax = NLD_true_cont[-1,0]
     nbins = int(np.ceil(Emax/binwidth_goal))

@@ -4,10 +4,9 @@
 # (or $\gamma$-ray strength function $gsf$) respectivly
 
 # to compile, run following:
-# cython rhosig.py
-# gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -fno-strict-aliasing -I/usr/include/python2.7 -o rhosig.so rhosig.c
+# cython3 rhosig.py
+# gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -fno-strict-aliasing -I/usr/include/python3.5 -o rhosig.so rhosig.c
 
-from __future__ import division
 import numpy as np 
 import matplotlib.pyplot as plt 
 from scipy.optimize import minimize
@@ -70,7 +69,7 @@ def decompose_matrix(P_in, Emid, fill_value=0):
   # inputs:
   # P_in: Matrix to be decomposed
   # Emin: Array of middle-bin values,
-  print "attempt decomposition"
+  print("attempt decomposition")
 
   # protect input arrays
   P_in = np.copy(P_in)
