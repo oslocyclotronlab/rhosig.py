@@ -30,7 +30,7 @@ def rsg_plots(rho_fit, T_fit, P_in, nld_ext=None, rho_true=None):
     # fitted matrix
     ax = ax_mat[1]
     P_fit = rsg.PfromRhoT(rho_fit,T_fit)
-
+    
     from matplotlib.colors import LogNorm # To get log scaling on the z axis
     colorbar_object = ax.pcolormesh(pltbins, pltbins, P_fit, norm=LogNorm())
     f_mat.colorbar(colorbar_object, ax=ax) # Add colorbar to plot
@@ -256,11 +256,14 @@ gsf_ext_range = np.array([0,3.,4., Sn+1])
 # assumption: Dipole transition only (therefore: E^(2L+1) -> E^3)
 gsf_fit = T_fit/(2*np.pi*pow(Emid,3.))
 
-# assumptions in normalization: swave (currently)
+# assumptions in normalization: swave (currently); and equal parity
+normMethod="standard" #-- like in normalization.c/Larsen2011 eq (26)
+# normMethod="test" # -- test derived directly from Bartolomew
 gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, gsf_in=gsf_fit, 
                                                                nld_ext = nld_ext,
                                                                gsf_ext_range=gsf_ext_range, pars=pars,
-                                                               Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm, 
+                                                               Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm,
+                                                               normMethod=normMethod,
                                                                spincutModel=spincutModel, spincutPars=spincutPars,
                                                                makePlot=makePlot, interactive=interactive)
 T_fit = 2*np.pi*gsf_fit*pow(Emid,3.) # for completenes, calculate this, too

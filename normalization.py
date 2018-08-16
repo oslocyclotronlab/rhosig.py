@@ -145,7 +145,9 @@ class SpinFunctions:
 def transformGSF(Emid, Emid_rho, rho_in, gsf_in, 
                  nld_ext,
                  gsf_ext_low, gsf_ext_high,
-                 Jtarget, D0, Gg, Sn, alpha_norm, spincutModel, spincutPars={}):
+                 Jtarget, D0, Gg, Sn, alpha_norm, 
+                 normMethod,
+                 spincutModel, spincutPars={}):
   # transform the gsf extracted with the Oslo method
   # to the average total radiative width <Gg>
   # returns normalized GSF (L=1) from an input gamma-ray strength function gsf
@@ -196,30 +198,76 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
     Eint_max = Sn # Sn + Exres # following routine by Magne; Exres is the energy resolution (of SiRi)
     Eintegral, stepSize = np.linspace(Eint_min,Eint_max,num=100, retstep=True) # number of interpolation points 
 
-    # equalts "old" (normalization.f) version in the Spin sum
-    # get the normaliation, see eg. eq (26) in Larsen2011; but converted T to gsf
-    # further assumptions: s-wave (currently)
-    def SpinSum(Jtarget): 
+    if(normMethod=="standard"):
+      # equalts "old" (normalization.f) version in the Spin sum
+      # get the normaliation, see eg. eq (26) in Larsen2011; but converted T to gsf
+      # further assumptions: s-wave (currently) and equal parity
+      def SpinSum(Ex, Jtarget): 
+        if Jtarget == 0: #  if(Jtarget == 0.0)      /*I_i = 1/2 => I_f = 1/2, 3/2 */
+          return SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
+        elif Jtarget == 1/2: #  if(Jtarget == 0.5)      /*I_i = 0, 1  => I_f = 0, 1, 2 */
+          return SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
+        elif Jtarget == 1: #  if(Jtarget == 0.5)      /*I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2 */
+          return 2*SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
+        elif Jtarget > 1: #  if(Jtarget == 0.5)      /*I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2 */
+          return SpinDist(Ex,Jtarget-1.5) + 2*SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
+        else:
+          ValueError("Negative J not supported")
+
+      integral = 0
+      for Eg in Eintegral:
+          Ex = Sn - Eg
+          if Eg<=Emid_rho[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_rho[0]))
+          if Ex<=Emid_rho[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0]))
+          integral += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * SpinSum(Ex, Jtarget)
+      integral *= stepSize
+
+      # factor of 2 because of parity
+      # /* Units = G/ (D) = meV / (eV*1e3) = 1 */
+      norm = 2 * Gg / ( integral * D0*1e3) 
+
+    elif(normMethod=="test"):
+      # experimental new version of the spin sum and integration 
+      # similar to (26) in Larsen2011, but derived directly from the definition in Bartholomew ; but converted T to gsf
+      # further assumptions: s-wave (currently) and equal parity
+      # def InIntegral(Ex, Jtarget): 
+
+      # input check
+      rho01plus = 1/2 * frho(Sn) * (SpinDist(Sn,Jtarget-1/2)+SpinDist(Sn,Jtarget+1/2))
+      D0_from_frho = 1/rho01plus *1e6
+      D0_diff = abs((D0 - D0_from_frho))
+      if (D0_diff > 0.1 * D0): ValueError("D0 from extrapolation ({}) and from given D0 ({}) don't match".format(D0_from_frho,D0))
+
+      # for now, only with spin 1/2
       if Jtarget == 0: #  if(Jtarget == 0.0)      /*I_i = 1/2 => I_f = 1/2, 3/2 */
-        return SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
+        return ValueError("This J not yet supported")
       elif Jtarget == 1/2: #  if(Jtarget == 0.5)      /*I_i = 0, 1  => I_f = 0, 1, 2 */
-        return SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
-      elif Jtarget == 1: #  if(Jtarget == 0.5)      /*I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2 */
-        return 2*SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
-      elif Jtarget > 1: #  if(Jtarget == 0.5)      /*I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2 */
-        return SpinDist(Ex,Jtarget-1.5) + 2*SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
+        # I_residual,i = 0 -> I_f = 1
+        rho0 = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget-1/2)
+        accessible_spin0 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget+0.5)
+
+        # I_residual,i = 1 -> I_f = 0,1,2
+        rho1 = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget+1/2)
+        accessible_spin1 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-0.5) + SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
       else:
         ValueError("Negative J not supported")
 
-    integral = 0
-    for Eg in Eintegral:
-        Ex = Sn - Eg
-        if Eg<=Emid_rho[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_rho[0]))
-        if Ex<=Emid_rho[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0]))
-        integral += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * SpinSum(Jtarget)
-    integral *= stepSize
+      integral0 = 0
+      integral1 = 0
+      for Eg in Eintegral:
+          Ex = Sn - Eg
+          if Eg<=Emid_rho[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_rho[0]))
+          if Ex<=Emid_rho[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0]))
+          integral0 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin0(Ex, Jtarget)
+          integral1 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin1(Ex, Jtarget)
 
-    return 2 * Gg / ( integral * D0*1e3)  # /* Units = G/ (D) = meV / (eV*1e3) = 1 */
+      integral = 1/rho0 * integral0 + 1/rho1 * integral1
+      integral *= stepSize
+
+      # /* Units = G/ (integral) = meV / (MeV*1e9) = 1 */
+      norm = Gg / ( integral *1e9)  
+
+    return norm
 
   b_norm = GetNormFromGgD0(Gg, D0, Jtarget)
   gsf_norm = gsf_in * b_norm
@@ -233,12 +281,13 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
   print("b_norm: {0}".format(b_norm))
 
   return gsf_norm, gsf_ext_low_norm, gsf_ext_high_norm, b_norm
-  
+
 
 def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in, 
                  nld_ext,
                  gsf_ext_range, pars,
                  Jtarget, D0, Gg, Sn, alpha_norm,
+                 normMethod,
                  makePlot, interactive,
                  spincutModel, spincutPars={}):
   # normalize the gsf extracted with the Oslo method
@@ -307,7 +356,8 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
                                                        nld_ext=nld_ext,
                                                        gsf_ext_low=gsf_ext_low, gsf_ext_high=gsf_ext_high,
                                                        Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, 
-                                                       alpha_norm=alpha_norm, 
+                                                       alpha_norm=alpha_norm,
+                                                       normMethod=normMethod,
                                                        spincutModel=spincutModel, spincutPars=spincutPars)
 
   if makePlot:
@@ -363,7 +413,8 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
                                                                    nld_ext=nld_ext,
                                                                    gsf_ext_low=gsf_ext_low1, gsf_ext_high=gsf_ext_high1,
                                                                    Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, 
-                                                                   alpha_norm=alpha_norm, 
+                                                                   alpha_norm=alpha_norm,
+                                                                   normMethod=normMethod,
                                                                    spincutModel=spincutModel, spincutPars=spincutPars)
               gsf_plot.set_ydata(gsf)
               gsf_ext_high_plt.set_ydata(gsf_ext_higha[:,1])
