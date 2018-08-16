@@ -39,9 +39,10 @@ def PfromRhoT(np.ndarray rho, np.ndarray T, type="transCoeff"):
           P[i_Ex,i_Eg] = rho[i_Ediff] * T[i_Eg]
           if type=="gsfL1": # if input T was a gsf, not transmission coeff: * E^(2L+1)
             Eg = Emid[i_Eg]
-
             P[i_Ex,i_Eg] *= np.power(Eg,3.)
-
+  # normalize each Ex row to 1 (-> get decay probability)
+  for i, normalization in enumerate(np.sum(P,axis=1)):
+    P[i,:] /= normalization
   return P
 
 def chi2(np.ndarray rho, np.ndarray T, np.ndarray Pexp):

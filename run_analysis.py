@@ -166,6 +166,10 @@ oslo_matrix = oslo_matrix[i_Emin:i_Emax,i_Emin:i_Emax]
 Emid_rho = Emid[:i_Emax-i_Emin]
 Emid = Emid[i_Emin:i_Emax]
 
+# normalize each Ex row to 1 (-> get decay probability)
+for i, normalization in enumerate(np.sum(oslo_matrix,axis=1)):
+    oslo_matrix[i,:] /= normalization
+
 Nbins = len(oslo_matrix) # after
 Eup_max = Emid[-1] + bin_width/2. # upper bound of last bin
 pltbins = np.linspace(0,Eup_max,Nbins+1) # array of (start-bin?) values used for plotting
