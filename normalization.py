@@ -203,17 +203,17 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
       # get the normaliation, see eg. eq (26) in Larsen2011; but converted T to gsf
       # further assumptions: s-wave (currently) and equal parity
       def SpinSum(Ex, Jtarget): 
-        if Jtarget == 0: #  if(Jtarget == 0.0)      /*I_i = 1/2 => I_f = 1/2, 3/2 */
-          return SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
-        elif Jtarget == 1/2: #  if(Jtarget == 0.5)      /*I_i = 0, 1  => I_f = 0, 1, 2 */
-          return SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
-        elif Jtarget == 1: #  if(Jtarget == 0.5)      /*I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2 */
-          return 2*SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
-        elif Jtarget > 1: #  if(Jtarget == 0.5)      /*I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2 */
-          return SpinDist(Ex,Jtarget-1.5) + 2*SpinDist(Ex,Jtarget-0.5) + 2*SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
+        if Jtarget == 0: #  if(Jtarget == 0.0)      I_i = 1/2 => I_f = 1/2, 3/2
+          return SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
+        elif Jtarget == 1/2: #  if(Jtarget == 0.5)  I_i = 0, 1  => I_f = 0, 1, 2
+          return SpinDist(Ex,Jtarget-1/2) + 2*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
+        elif Jtarget == 1: #  if(Jtarget == 0.5)     I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2
+          return 2*SpinDist(Ex,Jtarget-1/2) + 2*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
+        elif Jtarget > 1: #  J_target > 1   ->       I_i = Jt-1/2, Jt+1/2  => I_f = Jt-3/2, Jt-1/2, Jt+3/2, Jt+5/2
+          return SpinDist(Ex,Jtarget-3/2) + 2*SpinDist(Ex,Jtarget-1/2) + 2*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
         else:
           ValueError("Negative J not supported")
-
+      # perform integration by summation
       integral = 0
       for Eg in Eintegral:
           Ex = Sn - Eg
@@ -221,37 +221,52 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
           if Ex<=Emid_rho[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0]))
           integral += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * SpinSum(Ex, Jtarget)
       integral *= stepSize
-
-      # factor of 2 because of parity
-      # /* Units = G/ (D) = meV / (eV*1e3) = 1 */
+      # factor of 2 because of equi-parity (we use total nld in the
+      # integral above, instead of the "correct" nld per parity)
+      # Units: G / (D) = meV / (eV*1e3) = 1
       norm = 2 * Gg / ( integral * D0*1e3) 
 
     elif(normMethod=="test"):
       # experimental new version of the spin sum and integration 
       # similar to (26) in Larsen2011, but derived directly from the definition in Bartholomew ; but converted T to gsf
       # further assumptions: s-wave (currently) and equal parity
-      # def InIntegral(Ex, Jtarget): 
 
-      # input check
+      # input checks
       rho01plus = 1/2 * frho(Sn) * (SpinDist(Sn,Jtarget-1/2)+SpinDist(Sn,Jtarget+1/2))
       D0_from_frho = 1/rho01plus *1e6
       D0_diff = abs((D0 - D0_from_frho))
       if (D0_diff > 0.1 * D0): ValueError("D0 from extrapolation ({}) and from given D0 ({}) don't match".format(D0_from_frho,D0))
-
-      # for now, only with spin 1/2
-      if Jtarget == 0: #  if(Jtarget == 0.0)      /*I_i = 1/2 => I_f = 1/2, 3/2 */
-        return ValueError("This J not yet supported")
-      elif Jtarget == 1/2: #  if(Jtarget == 0.5)      /*I_i = 0, 1  => I_f = 0, 1, 2 */
+      
+      # Calculating the nlds per J and parity in the residual nucleus before decay, and the accessible spins 
+      # (by dipole decay <- assumption)
+      if Jtarget == 0:     #  J_target = 0   ->    I_i = 1/2 => I_f = 1/2, 3/2
+        # I_residual,i = 1/2 -> I_f = 0, 1
+        rho0pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget0+1/2)
+        accessible_spin0 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-1/2) + SpinDist(Ex,Jtarget+1/2)
+      elif Jtarget == 1/2: #  J_target = 1/2   ->      I_i = 0, 1  => I_f = 0, 1, 2
         # I_residual,i = 0 -> I_f = 1
-        rho0 = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget-1/2)
-        accessible_spin0 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget+0.5)
-
+        rho0pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget-1/2)
+        accessible_spin0 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget+1/2)
         # I_residual,i = 1 -> I_f = 0,1,2
-        rho1 = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget+1/2)
-        accessible_spin1 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-0.5) + SpinDist(Ex,Jtarget+0.5) + SpinDist(Ex,Jtarget+1.5)
+        rho1pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget+1/2)
+        accessible_spin1 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-1/2) + SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
+      elif Jtarget == 1: #  J_target = 1  ->       I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2
+        # I_residual,i = 1/2 -> I_f = 1/2, 3/2
+        rho0pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget-1/2)
+        accessible_spin0 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-1/2) + SpinDist(Ex,Jtarget+1/2)
+        # I_residual,i = 3/2 -> I_f = 1/2, 3/2, 5/2
+        rho1pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget+1/2)
+        accessible_spin1 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-1/2) + SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
+      elif Jtarget > 1: #J_target > 1   ->       I_i = Jt-1/2, Jt+1/2  => I_f = Jt-3/2, Jt-1/2, Jt+3/2, Jt+5/2
+        # I_residual,i = Jt-1/2 -> I_f = Jt-3/2, Jt-1/2, Jt+1/2
+        rho0pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget-1/2)
+        accessible_spin0 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-3/2) + SpinDist(Ex,Jtarget-1/2) + SpinDist(Ex,Jtarget+1/2)
+        # I_residual,i = Jt+1/2 -> I_f = Jt-1/2, Jt+1/2, Jt+3/2
+        rho1pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget+1/2)
+        accessible_spin1 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-1/2) + SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
       else:
         ValueError("Negative J not supported")
-
+      # perform integration by summation
       integral0 = 0
       integral1 = 0
       for Eg in Eintegral:
@@ -260,12 +275,16 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
           if Ex<=Emid_rho[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0]))
           integral0 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin0(Ex, Jtarget)
           integral1 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin1(Ex, Jtarget)
-
-      integral = 1/rho0 * integral0 + 1/rho1 * integral1
+      # simplification: <Gg>_experimental is usually reported as the average over all individual
+      # Gg's. Due to a lack of further knowledge, we assume that there are equally many transisions from target states
+      # with It+1/2 as from It-1/2. Then we find: 
+      # <Gg> = ( <Gg>_(I+1/2) + <Gg>_(I+1/2) ) / 2
+      integral = (1/rho0pi * integral0 + 1/rho1pi * integral1)/2
       integral *= stepSize
-
-      # /* Units = G/ (integral) = meV / (MeV*1e9) = 1 */
-      norm = Gg / ( integral *1e9)  
+      # factor of 2 because of equi-parity (we use total nld in the
+      # integral above, instead of the "correct" nld per parity)
+      # Units: G / (integral) = meV / (MeV*1e9) = 1
+      norm = 2 * Gg / ( integral *1e9)  
 
     return norm
 
