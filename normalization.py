@@ -178,7 +178,9 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
 
     # extapolate "around" dataset 
     def frho(E):
-      if E <= Emid_rho[-1]:
+      if E==0:
+        val = 1
+      elif E <= Emid_rho[-1]:
         val = frho_exp(E)
       else:
         val = fnld_ext(E)

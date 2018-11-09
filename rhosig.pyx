@@ -4,7 +4,7 @@
 # (or $\gamma$-ray strength function $gsf$) respectivly
 
 # to compile, run following:
-# cython3 rhosig.py
+# cython3 rhosig.pyx
 # gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -fno-strict-aliasing -I/usr/include/python3.5 -o rhosig.so rhosig.c
 
 import numpy as np 
@@ -52,7 +52,7 @@ def PfromRhoT(np.ndarray rho, np.ndarray T, int Nbins_Ex, np.ndarray Emid, np.nd
     P[i,:] /= normalization
   return P
 
-def chi2(np.ndarray rho, np.ndarray T, np.ndarray Pexp, Emid, Emid_rho, Emid_Ex):
+def chi2(np.ndarray rho, np.ndarray T, np.ndarray Pexp, np.ndarray Perr, Emid, Emid_rho, Emid_Ex):
   cdef float chi2
   cdef np.ndarray Pfit
   if np.any(rho<0) or np.any(T<0): # hack to implement lower boundary
@@ -61,7 +61,7 @@ def chi2(np.ndarray rho, np.ndarray T, np.ndarray Pexp, Emid, Emid_rho, Emid_Ex)
     Nbins_Ex, Nbins_T = np.shape(Pexp)
     Pfit = PfromRhoT(rho, T, Nbins_Ex, Emid, Emid_rho, Emid_Ex)
     # chi^2 = (data - fit)^2 / unc.^2, where unc.^2 = #cnt for Poisson dist.
-    chi2 = np.sum( div0(np.power((Pexp - Pfit), 2.),Pexp))
+    chi2 = np.sum( div0((Pexp - Pfit)**2,Perr**2))
   return chi2
 
 def rhoTfrom1D(np.ndarray x1D, int Nbins_rho):
@@ -73,8 +73,9 @@ def rhoTfrom1D(np.ndarray x1D, int Nbins_rho):
 def objfun1D(x, *args):
   # 1D version of the chi2 function (needed for minimize function)
   # so x has one dimension only, but may be nested to contain rho and T
-  Pexp, Emid, Emid_rho, Emid_Ex = args
+  Pexp, Perr, Emid, Emid_rho, Emid_Ex = args
   Pexp = np.asarray(Pexp)
+  Perr = np.asarray(Perr)
   Emid = np.asarray(Emid)
   Emid_rho = np.asarray(Emid_rho)
   Emid_Ex = np.asarray(Emid_Ex)
@@ -82,9 +83,9 @@ def objfun1D(x, *args):
   Nbins_Ex, Nbins_T = np.shape(Pexp)
   Nbins_rho = Nbins_T
   rho, T = rhoTfrom1D(x, Nbins_rho)
-  return chi2(rho, T, Pexp, Emid, Emid_rho, Emid_Ex)
+  return chi2(rho, T, Pexp, Perr, Emid, Emid_rho, Emid_Ex)
 
-def decompose_matrix(P_in, Emid, Emid_rho, Emid_Ex, fill_value=0):
+def decompose_matrix(P_in, P_err, Emid, Emid_rho, Emid_Ex, fill_value=0):
   # routine for the decomposition of the input 
   # inputs:
   # P_in: Matrix to be decomposed
@@ -93,6 +94,7 @@ def decompose_matrix(P_in, Emid, Emid_rho, Emid_Ex, fill_value=0):
 
   # protect input arrays
   P_in = np.copy(P_in)
+  P_err = np.copy(P_err)
   Emid = np.copy(Emid)
 
   Nbins_Ex, Nbins_T = np.shape(P_in)
@@ -115,7 +117,8 @@ def decompose_matrix(P_in, Emid, Emid_rho, Emid_Ex, fill_value=0):
   p0 = np.append(rho0,T0) # create 1D array of the initial guess
 
   # minimization
-  res = minimize(objfun1D, x0=p0, args=(P_in,Emid,Emid_rho,Emid_Ex), method="Powell",
+
+  res = minimize(objfun1D, x0=p0, args=(P_in,P_err,Emid,Emid_rho,Emid_Ex), method="Powell",
     options={'disp': True})
   # further optimization: eg through higher tolderaced xtol and ftol
   # different other methods tried:

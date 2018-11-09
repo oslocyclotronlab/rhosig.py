@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from io import StringIO
 import json_tricks as json # can handle np arrays
+from uncertainties import unumpy
 
 import rhosig as rsg
 import generateRhoT as gen
@@ -183,10 +184,14 @@ print(np.shape(oslo_matrix),np.shape(Emid),np.shape(Emid_rho))
 # def myfunc(N): return np.random.normal(N,np.sqrt(N))
 # myfunc_vec = np.vectorize(myfunc)
 # oslo_matrix=myfunc_vec(oslo_matrix)
+# approximate uncertainty my sqrt of number of counts 
+u_oslo_matrix = unumpy.uarray(oslo_matrix, np.sqrt(oslo_matrix))
 
 # normalize each Ex row to 1 (-> get decay probability)
 for i, normalization in enumerate(np.sum(u_oslo_matrix,axis=1)):
 	u_oslo_matrix[i,:] /= normalization
+oslo_matrix = unumpy.nominal_values(u_oslo_matrix)
+oslo_matrix_err = unumpy.std_devs(u_oslo_matrix)
 
 Nbins_Ex, Nbins_Eg= np.shape(oslo_matrix) # after
 Eup_max = Exmin + Nbins_Ex * bin_width # upper bound of last bin
@@ -196,7 +201,7 @@ pltbins_Eg = np.linspace(Egmin,Eup_max,Nbins_Eg+1) # array of (start-bin?) value
 
 
 ## decomposition of first gereration matrix P in NLD rho and transmission coefficient T
-rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, Emid=Emid, Emid_rho=Emid_rho, Emid_Ex=Emid_Ex, fill_value=1e-1)
+rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid=Emid, Emid_rho=Emid_rho, Emid_Ex=Emid_Ex, fill_value=1e-1)
 print(rho_fit, T_fit)
 
 ## normalize the NLD
