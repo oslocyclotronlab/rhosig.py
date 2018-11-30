@@ -76,6 +76,92 @@ def rebin_and_shift(array, E_range, N_final, rebin_axis=0):
     return array_rebinned, E_range_shifted_and_scaled
 
 
+def rebin_both_axis(array, Emid, rebin_fac):
+    """ Rebin 2D matrix (and set corresponding calibration)
+
+    Note: For now, assumes quadradic input and same Emids and rebinning factor
+
+    Parameters:
+    -----------
+    array : ndarray
+        2D Array that should be rebinned
+    Emid : ndarray
+        Array of mid bin energies
+    rebin_fac :  int
+        Factor by which axes should be compressed.
+
+    Returns:
+    --------
+    array : ndarray
+        Rebinned array
+    Nbins : int
+        Number of bins in the resulting matrix
+    Emid : ndarray
+        Bin center energies
+    """
+
+    array = np.copy(array)
+    Emid = np.copy(Emid)
+
+    if array.shape[0] == array.shape[1]:
+        Nbins = array.shape[0]
+    else:
+        raise ValueError("Non-quadradic array not yet implemented")
+
+    Nbins_final = int(Nbins/rebin_fac)
+    rebin_fac = Nbins/float(Nbins_final)
+
+    array, Emid_ = rebin_and_shift(array, Emid, Nbins_final, rebin_axis=0) # rebin x axis
+    array, Emid_ = rebin_and_shift(array, Emid, Nbins_final, rebin_axis=1) # rebin y axis
+    Emid = Emid_
+    Nbins = Nbins_final
+
+    return array, Nbins, Emid
+
+
+def fg_cut_matrix(array, Emid, Egmin, Exmin, Emax, **kwargs):
+    """ Make the first generation cuts to the matrix
+
+    Parameters:
+    -----------
+    array : ndarray
+        2D Array that will be sliced
+    Emid : ndarray
+        Array of bin center energies [Note: up to here assumed symetrix for
+        both axes]
+    Egmin, Exmin, Emax : doubles
+        Lower and higher cuts for the gamma-ray and excitation energy axis
+    kwargs: optional
+        Will be ignored, just for compatibility;
+
+    Returns:
+    --------
+    array : ndarray
+        Sliced array
+    Emid_Eg : ndarray
+        Bin center energies of the gamma-ray axis
+    Emid_Ex : ndarray
+        Bin center energies of the excitation energy axis
+    Emid_nld : ndarray
+        Bin center energies of the nld once extracted
+    """
+
+    np.copy(array)
+
+    # Eg
+    i_Egmin = (np.abs(Emid-Egmin)).argmin()
+    i_Emax = (np.abs(Emid-Emax)).argmin()
+    # Ex
+    i_Exmin = (np.abs(Emid-Exmin)).argmin()
+
+    array = array[i_Exmin:i_Emax,i_Egmin:i_Emax]
+    Emid_Ex = Emid[i_Exmin:i_Emax]
+    Emid_Eg = Emid[i_Egmin:i_Emax]
+    Emid_nld = Emid[:i_Emax-i_Egmin]
+
+    return array, Emid_Eg, Emid_Ex, Emid_nld
+
+
 def read_mama_2D(filename):
     """ Reads a MAMA matrix file and returns the matrix as a numpy array
 
