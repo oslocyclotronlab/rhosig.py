@@ -2,16 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import rhosig as rsg
 
-def rsg_plots(rho_fit, T_fit, P_in, Emid, Emid_rho, Emid_Ex, Exmin, Egmin,nld_ext=None, rho_true=None, **kwargs):
+def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Egmin,nld_ext=None, rho_true=None, **kwargs):
     Nbins_Ex, Nbins_Eg= np.shape(P_in) # after
-    bin_width = Emid[1]- Emid[0]
+    bin_width = Emid_Eg[1]- Emid_Eg[0]
     Eup_max = Exmin + Nbins_Ex * bin_width # upper bound of last bin
     pltbins_Ex = np.linspace(Exmin,Eup_max,Nbins_Ex+1) # array of (start-bin?) values used for plotting
     Eup_max = Egmin + Nbins_Eg * bin_width # upper bound of last bin
     pltbins_Eg = np.linspace(Egmin,Eup_max,Nbins_Eg+1) # array of (start-bin?) values used for plotting
 
     # creates
-    # gsf_fit = T_fit/pow(Emid,3)  # assuming dipoles only
+    # gsf_fit = T_fit/pow(Emid_Eg,3)  # assuming dipoles only
     # New Figure: Oslo type matrix
     f_mat, ax_mat = plt.subplots(2,1)
 
@@ -28,7 +28,7 @@ def rsg_plots(rho_fit, T_fit, P_in, Emid, Emid_rho, Emid_Ex, Exmin, Egmin,nld_ex
     # fitted matrix
     ax = ax_mat[1]
     Nbins_Ex, Nbins_T = np.shape(P_in)
-    P_fit = rsg.PfromRhoT(rho_fit,T_fit, Nbins_Ex, Emid, Emid_rho, Emid_Ex)
+    P_fit = rsg.PfromRhoT(rho_fit,T_fit, Nbins_Ex, Emid_Eg, Emid_nld, Emid_Ex)
 
     from matplotlib.colors import LogNorm # To get log scaling on the z axis
     colorbar_object = ax.pcolormesh(pltbins_Eg, pltbins_Ex, P_fit, norm=norm)
@@ -42,8 +42,8 @@ def rsg_plots(rho_fit, T_fit, P_in, Emid, Emid_rho, Emid_Ex, Exmin, Egmin,nld_ex
 
     # NLD
     if nld_ext is not None: ax.plot(nld_ext[:,0],nld_ext[:,1],"b--")
-    if rho_true is not None: ax.plot(Emid_rho,rho_true)
-    ax.plot(Emid_rho,rho_fit,"o")
+    if rho_true is not None: ax.plot(Emid_nld,rho_true)
+    ax.plot(Emid_nld,rho_fit,"o")
 
     ax.set_yscale('log')
     ax.set_xlabel(r"$E_x \, \mathrm{(MeV)}$")
@@ -58,7 +58,7 @@ def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, rho_true=None,
     # NLD
     ax = ax_mat[0]
     if rho_true is not None: ax.step(np.append(-rho_true_binwidth,rho_true[:-1,0])+rho_true_binwidth/2.,np.append(0,rho_true[:-1,1]), "k", where="pre",label="input NLD, binned")
-    ax.plot(Emid_rho,rho_fit,"o")
+    ax.plot(Emid_nld,rho_fit,"o")
 
     ax.set_yscale('log')
     ax.set_xlabel(r"$E_x \, \mathrm{(MeV)}$")
@@ -67,7 +67,7 @@ def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, rho_true=None,
     # gsf
     ax = ax_mat[1]
     if gsf_true is not None: ax.plot(gsf_true[:,0],gsf_true[:,1])
-    ax.plot(Emid,gsf_fit,"o")
+    ax.plot(Emid_Eg,gsf_fit,"o")
     [gsf_ext_high_plt] = ax.plot(gsf_ext_high[:,0],gsf_ext_high[:,1],"r--", label="ext. high")
     [gsf_ext_low_plt] = ax.plot(gsf_ext_low[:,0],gsf_ext_low[:,1],"b--", label="ext. high")
 

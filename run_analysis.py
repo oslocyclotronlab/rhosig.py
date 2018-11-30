@@ -47,7 +47,7 @@ pars_fg = {"Egmin" : 1.0,
            "Emax" : 5.0}
 
 oslo_matrix, Nbins, Emid = ut.rebin_both_axis(oslo_matrix, Emid, rebin_fac = 4)
-oslo_matrix, Emid, Emid_Ex, Emid_rho = ut.fg_cut_matrix(oslo_matrix,
+oslo_matrix, Emid_Eg, Emid_Ex, Emid_nld = ut.fg_cut_matrix(oslo_matrix,
                                                         Emid, **pars_fg)
 
 ##############
@@ -65,7 +65,7 @@ oslo_matrix_err = unumpy.std_devs(u_oslo_matrix)
 ##############
 
 ## decomposition of first gereration matrix P in NLD rho and transmission coefficient T
-rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid=Emid, Emid_rho=Emid_rho, Emid_Ex=Emid_Ex, fill_value=1e-1)
+rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex=Emid_Ex, fill_value=1e-1)
 # print(rho_fit, T_fit)
 
 ## normalize the NLD
@@ -93,7 +93,7 @@ def load_NLDtrue(fdisc="compare/240Pu/NLD_exp_disc.dat", fcont="compare/240Pu/NL
 rho_true, rho_true_binwith = load_NLDtrue()
 
 # normalize
-rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid_rho=Emid_rho, rho=rho_fit)
+rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid_nld=Emid_nld, rho=rho_fit)
 
 # extrapolation
 ext_range = np.array([2.5,7.])
@@ -107,13 +107,13 @@ pars['nld_CT']= np.array([0.55,-1.3])
 nldPars['T'], nldPars['Eshift'] = pars['nld_CT']
 
 # extrapolations of the gsf
-Emid_ = np.linspace(ext_range[0],ext_range[1])
-nld_ext = norm.nld_extrapolation(Emid_,
+Emid_Eg_ = np.linspace(ext_range[0],ext_range[1])
+nld_ext = norm.nld_extrapolation(Emid_Eg_,
 							 nldModel=nldModel, nldPars=nldPars,
 							 makePlot=makePlot)
 
 
-splot.rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, Emid=Emid, Emid_rho=Emid_rho, Emid_Ex = Emid_Ex, nld_ext=nld_ext, rho_true=None, **pars_fg)
+splot.rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex = Emid_Ex, nld_ext=nld_ext, rho_true=None, **pars_fg)
 # rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
 
 ## normalization of the gsf
@@ -125,7 +125,7 @@ spincutPars={"mass":240, "NLDa":25.16, "Eshift":0.12} # some dummy values
 # spincutPars={"mass":56, "Pa_prime":2.905} # some dummy values
 
 # input parameters:
-# Emid, rho_in, T_in in MeV, MeV^-1, 1
+# Emid_Eg, rho_in, T_in in MeV, MeV^-1, 1
 # Jtarget in 1
 # D0 in eV
 # Gg in meV
@@ -137,7 +137,7 @@ Sn = 6.534 # work-around for now! -- until energy calibration is set!
 
 # extrapolations
 gsf_ext_range = np.array([0,3.,4., Sn+1])
-# trans_ext_low, trans_ext_high = norm.trans_extrapolation(Emid, T_fit=T_fit,
+# trans_ext_low, trans_ext_high = norm.trans_extrapolation(Emid_Eg, T_fit=T_fit,
 #                                                    pars=pars, ext_range=ext_range,
 #                                                    makePlot=makePlot, interactive=interactive)
 
@@ -145,19 +145,19 @@ gsf_ext_range = np.array([0,3.,4., Sn+1])
 ###################################################################
 # calculate the gsf
 # assumption: Dipole transition only (therefore: E^(2L+1) -> E^3)
-gsf_fit = T_fit/(2*np.pi*pow(Emid,3.))
+gsf_fit = T_fit/(2*np.pi*pow(Emid_Eg,3.))
 
 # assumptions in normalization: swave (currently); and equal parity
 normMethod="standard" #-- like in normalization.c/Larsen2011 eq (26)
 # normMethod="test" # -- test derived directly from Bartolomew
-gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, gsf_in=gsf_fit,
+gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_fit, gsf_in=gsf_fit,
 															   nld_ext = nld_ext,
 															   gsf_ext_range=gsf_ext_range, pars=pars,
 															   Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm,
 															   normMethod=normMethod,
 															   spincutModel=spincutModel, spincutPars=spincutPars,
 															   makePlot=makePlot, interactive=interactive)
-T_fit = 2*np.pi*gsf_fit*pow(Emid,3.) # for completenes, calculate this, too
+T_fit = 2*np.pi*gsf_fit*pow(Emid_Eg,3.) # for completenes, calculate this, too
 
 # # load "true" gsf
 # gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")

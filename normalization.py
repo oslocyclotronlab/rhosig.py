@@ -7,15 +7,15 @@ from matplotlib.widgets import Slider, Button, RadioButtons
 # normalization of NLD and GSF with the Oslo method
 
 # Normalization of the NLD
-def normalizeNLD(E1, nldE1, E2, nldE2, Emid_rho, rho):
+def normalizeNLD(E1, nldE1, E2, nldE2, Emid_nld, rho):
   # normalization of the NLD according to the transformation eq (3), Schiller2000
   # iputs: unnormalized nld rho, and their mid-energy bins Emid
   #        E1(2) and nldE1(2): normalization points: Energy and NLD
 
   # find corresponding energy bins of E1 and E2
-  i_E1 = (np.abs(Emid_rho-E1)).argmin()
-  i_E2 = (np.abs(Emid_rho-E2)).argmin()
-  print(i_E1, i_E2, Emid_rho[i_E1], Emid_rho[i_E2])
+  i_E1 = (np.abs(Emid_nld-E1)).argmin()
+  i_E2 = (np.abs(Emid_nld-E2)).argmin()
+  print(i_E1, i_E2, Emid_nld[i_E1], Emid_nld[i_E2])
 
   # find alpha and A from the normalization points
   alpha = np.log( (nldE2 * rho[i_E1]) / (nldE1*rho[i_E2]) ) / (E2-E1)
@@ -24,7 +24,7 @@ def normalizeNLD(E1, nldE1, E2, nldE2, Emid_rho, rho):
   print("Normalization parameters: \n alpha={0:1.2e} \t A={1:1.2e} ".format(alpha, A))
 
   # apply the transformation
-  rho *= A * np.exp(alpha*Emid_rho)
+  rho *= A * np.exp(alpha*Emid_nld)
   return rho, alpha, A
 
 # extrapolations of the gsf
@@ -35,7 +35,7 @@ def nld_extrapolation(Ex, nldModel, nldPars={},
       # Get Extrapolation values
 
       # different extrapolation models
-      def CT(T, Eshift): 
+      def CT(T, Eshift):
       # constant temperature
         return np.exp((Ex-Eshift) / T) / T;
 
@@ -46,7 +46,7 @@ def nld_extrapolation(Ex, nldModel, nldPars={},
         else:
             raise TypeError("Error: Need following arguments for this method: {0}".format(pars_req))
 
-      if model=="CT": 
+      if model=="CT":
         pars_req = {"T", "Eshift"}
         return CallModel(CT,pars,pars_req)
       else:
@@ -73,7 +73,7 @@ def gsf_extrapolation(pars, ext_range):
     def f_gsf_ext_high(Eg, a, b):
         return np.exp(a*Eg+b) / np.power(Eg,3)
 
-    Emin_low, Emax_low, Emin_high, Emax_high = ext_range 
+    Emin_low, Emax_low, Emin_high, Emax_high = ext_range
     Emid_ext_low = np.linspace(Emin_low,Emax_low)
     Emid_ext_high = np.linspace(Emin_high,Emax_high)
     ext_a, ext_b =  pars['gsf_ext_high']
@@ -89,21 +89,21 @@ class SpinFunctions:
     # Get the square of the spin cut for a specified model
 
     # different spin cut models
-    def EB05(mass, NLDa, Eshift): 
+    def EB05(mass, NLDa, Eshift):
     # Von Egidy & B PRC72,044311(2005)
     # The rigid moment of inertia formula (RMI)
     # FG+CT
       Eeff = Ex - Eshift
       if Eeff<0: Eeff=0
       sigma2 =  (0.0146 * np.power(mass, 5.0/3.0)
-                  * (1 + np.sqrt(1 + 4 * NLDa * Eeff)) 
+                  * (1 + np.sqrt(1 + 4 * NLDa * Eeff))
                   / (2 * NLDa))
       return sigma2
-    def EB09_CT(mass): 
+    def EB09_CT(mass):
       # The constant temperature (CT) formula Von Egidy & B PRC80,054310 and NPA 481 (1988) 189
       sigma2 =  np.power(0.98*(A**(0.29)),2)
       return sigma2
-    def EB09_emp(mass,Pa_prime): 
+    def EB09_emp(mass,Pa_prime):
       # Von Egidy & B PRC80,054310
       # FG+CT
       Eeff = Ex - 0.5 * Pa_prime
@@ -118,15 +118,15 @@ class SpinFunctions:
       else:
           raise TypeError("Error: Need following arguments for this method: {0}".format(pars_req))
 
-    if model=="EB05": 
+    if model=="EB05":
       pars_req = {"mass", "NLDa", "Eshift"}
       return CallModel(EB05,pars,pars_req)
-    if model=="EB09_CT": 
+    if model=="EB09_CT":
       pars_req = {"mass"}
       return CallModel(EB09_CT,pars,pars_req)
-    if model=="EB09_emp": 
+    if model=="EB09_emp":
       pars_req = {"mass","Pa_prime"}
-      return CallModel(EB09_emp,pars,pars_req) 
+      return CallModel(EB09_emp,pars,pars_req)
 
     else:
       raise TypeError("\nError: Spincut model not supported; check spelling\n")
@@ -142,17 +142,17 @@ class SpinFunctions:
     return (2.*J+1.) /(2.*sigma2) * np.exp(-np.power(J+0.5, 2.) / (2.*sigma2))
 
 
-def transformGSF(Emid, Emid_rho, rho_in, gsf_in, 
+def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
                  nld_ext,
                  gsf_ext_low, gsf_ext_high,
-                 Jtarget, D0, Gg, Sn, alpha_norm, 
+                 Jtarget, D0, Gg, Sn, alpha_norm,
                  normMethod,
                  spincutModel, spincutPars={}):
   # transform the gsf extracted with the Oslo method
   # to the average total radiative width <Gg>
   # returns normalized GSF (L=1) from an input gamma-ray strength function gsf
   # inputs:
-    # Emid, rho_in, gsf in MeV, MeV^-1, MeV^-3 -- -- important: gsf needs to be "shape corrected" by alpha_norm
+    # Emid_Eg, rho_in, gsf in MeV, MeV^-1, MeV^-3 -- -- important: gsf needs to be "shape corrected" by alpha_norm
     # nld_ext: extrapolation of nld
     # gsf_ext_low, high: extrapolations of gsf -- important: need to be "shape corrected" bs alpha_norm
     # Jtarget in 1
@@ -169,42 +169,42 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
     # get the normaliation, see eg. eq (26) in Larsen2011; but converted T to gsf
 
     # compose nld and gsf function of data & extrapolation
-    frho_exp = interp1d(Emid_rho,rho_in) # defualt: linear interpolation
+    frho_exp = interp1d(Emid_nld,rho_in) # defualt: linear interpolation
     fnld_ext = interp1d(nld_ext[:,0], nld_ext[:,1])  # default:linear interpolation
 
-    fgsf_exp   = interp1d(Emid, gsf_in)  # default:linear interpolation
+    fgsf_exp   = interp1d(Emid_Eg, gsf_in)  # default:linear interpolation
     fgsf_ext_low = interp1d(gsf_ext_low[:,0], gsf_ext_low[:,1])  # default:linear interpolation
     fgsf_ext_high = interp1d(gsf_ext_high[:,0], gsf_ext_high[:,1])  # default:linear interpolation
 
-    # extapolate "around" dataset 
+    # extapolate "around" dataset
     def frho(E):
       if E==0:
         val = 1
-      elif E <= Emid_rho[-1]:
+      elif E <= Emid_nld[-1]:
         val = frho_exp(E)
       else:
         val = fnld_ext(E)
       return val
 
     def fgsf(E):
-      if E < Emid[0]:
+      if E < Emid_Eg[0]:
         val = fgsf_ext_low(E)
-      elif E <= Emid[-1]:
+      elif E <= Emid_Eg[-1]:
         val = fgsf_exp(E)
       else:
         val = fgsf_ext_high(E)
       return val
 
-    # calculate integral 
+    # calculate integral
     Eint_min = 0
     Eint_max = Sn # Sn + Exres # following routine by Magne; Exres is the energy resolution (of SiRi)
-    Eintegral, stepSize = np.linspace(Eint_min,Eint_max,num=100, retstep=True) # number of interpolation points 
+    Eintegral, stepSize = np.linspace(Eint_min,Eint_max,num=100, retstep=True) # number of interpolation points
 
     if(normMethod=="standard"):
       # equalts "old" (normalization.f) version in the Spin sum
       # get the normaliation, see eg. eq (26) in Larsen2011; but converted T to gsf
       # further assumptions: s-wave (currently) and equal parity
-      def SpinSum(Ex, Jtarget): 
+      def SpinSum(Ex, Jtarget):
         if Jtarget == 0: #  if(Jtarget == 0.0)      I_i = 1/2 => I_f = 1/2, 3/2
           return SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
         elif Jtarget == 1/2: #  if(Jtarget == 0.5)  I_i = 0, 1  => I_f = 0, 1, 2
@@ -219,17 +219,17 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
       integral = 0
       for Eg in Eintegral:
           Ex = Sn - Eg
-          if Eg<=Emid_rho[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_rho[0]))
-          if Ex<=Emid_rho[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0]))
+          if Eg<=Emid_nld[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_nld[0]))
+          if Ex<=Emid_nld[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_nld[0]))
           integral += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * SpinSum(Ex, Jtarget)
       integral *= stepSize
       # factor of 2 because of equi-parity (we use total nld in the
       # integral above, instead of the "correct" nld per parity)
       # Units: G / (D) = meV / (eV*1e3) = 1
-      norm = 2 * Gg / ( integral * D0*1e3) 
+      norm = 2 * Gg / ( integral * D0*1e3)
 
     elif(normMethod=="test"):
-      # experimental new version of the spin sum and integration 
+      # experimental new version of the spin sum and integration
       # similar to (26) in Larsen2011, but derived directly from the definition in Bartholomew ; but converted T to gsf
       # further assumptions: s-wave (currently) and equal parity
 
@@ -238,8 +238,8 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
       D0_from_frho = 1/rho01plus *1e6
       D0_diff = abs((D0 - D0_from_frho))
       if (D0_diff > 0.1 * D0): ValueError("D0 from extrapolation ({}) and from given D0 ({}) don't match".format(D0_from_frho,D0))
-      
-      # Calculating the nlds per J and parity in the residual nucleus before decay, and the accessible spins 
+
+      # Calculating the nlds per J and parity in the residual nucleus before decay, and the accessible spins
       # (by dipole decay <- assumption)
       if Jtarget == 0:     #  J_target = 0   ->    I_i = 1/2 => I_f = 1/2, 3/2
         # I_residual,i = 1/2 -> I_f = 0, 1
@@ -273,20 +273,20 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
       integral1 = 0
       for Eg in Eintegral:
           Ex = Sn - Eg
-          if Eg<=Emid_rho[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_rho[0]))
-          if Ex<=Emid_rho[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_rho[0]))
+          if Eg<=Emid_nld[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_nld[0]))
+          if Ex<=Emid_nld[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_nld[0]))
           integral0 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin0(Ex, Jtarget)
           integral1 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin1(Ex, Jtarget)
       # simplification: <Gg>_experimental is usually reported as the average over all individual
       # Gg's. Due to a lack of further knowledge, we assume that there are equally many transisions from target states
-      # with It+1/2 as from It-1/2. Then we find: 
+      # with It+1/2 as from It-1/2. Then we find:
       # <Gg> = ( <Gg>_(I+1/2) + <Gg>_(I+1/2) ) / 2
       integral = (1/rho0pi * integral0 + 1/rho1pi * integral1)/2
       integral *= stepSize
       # factor of 2 because of equi-parity (we use total nld in the
       # integral above, instead of the "correct" nld per parity)
       # Units: G / (integral) = meV / (MeV*1e9) = 1
-      norm = 2 * Gg / ( integral *1e9)  
+      norm = 2 * Gg / ( integral *1e9)
 
     return norm
 
@@ -304,7 +304,7 @@ def transformGSF(Emid, Emid_rho, rho_in, gsf_in,
   return gsf_norm, gsf_ext_low_norm, gsf_ext_high_norm, b_norm
 
 
-def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in, 
+def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
                  nld_ext,
                  gsf_ext_range, pars,
                  Jtarget, D0, Gg, Sn, alpha_norm,
@@ -315,7 +315,7 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
   # to the average total radiative width <Gg>
   # returns normalized GSF (L=1) from an input gamma-ray strength function gsf
   # inputs:
-    # Emid, rho_in, gsf in MeV, MeV^-1, MeV^-3
+    # Emid_Eg, rho_in, gsf in MeV, MeV^-1, MeV^-3
     # nld_ext: extrapolation of nld
     # gsf_ext_range: extrapolation ranges of gsf
     # Jtarget in 1
@@ -326,7 +326,7 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
       # interpolate NLD and T
 
 
-  #   def trans_extrapolation(Emid, gsf_fit, pars, ext_range, makePlot, interactive):
+  #   def trans_extrapolation(Emid_Eg, gsf_fit, pars, ext_range, makePlot, interactive):
   # """finding and plotting extraploation of the transmission coefficient/gsf
   #   input parameters:
   #   Emid and gsf_fit = reference transmission coefficient to plot
@@ -352,7 +352,7 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
   # def f_gsf_ext_high(Eg, a, b):
   #     return np.exp(a*Eg+b) / np.exp(Eg,3)
 
-  # Emin_low, Emax_low, Emin_high, Emax_high = ext_range 
+  # Emin_low, Emax_low, Emin_high, Emax_high = ext_range
   # Emid_ext_low = np.linspace(Emin_low,Emax_low)
   # Emid_ext_high = np.linspace(Emin_high,Emax_high)
   # ext_a, ext_b =  pars['trans_ext_high']
@@ -370,13 +370,13 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
       pars['gsf_ext_high']= np.array([2.,-25.])
 
   # creating the defaults
-  gsf_shape = gsf_in * np.exp(alpha_norm * Emid) # "shape" - correction of the transformation
+  gsf_shape = gsf_in * np.exp(alpha_norm * Emid_Eg) # "shape" - correction of the transformation
 
   gsf_ext_low, gsf_ext_high = gsf_extrapolation(pars, gsf_ext_range)
-  gsf, gsf_ext_lowa, gsf_ext_higha, b_norm =  transformGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_in, gsf_in=gsf_shape, 
+  gsf, gsf_ext_lowa, gsf_ext_higha, b_norm =  transformGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_in, gsf_in=gsf_shape,
                                                        nld_ext=nld_ext,
                                                        gsf_ext_low=gsf_ext_low, gsf_ext_high=gsf_ext_high,
-                                                       Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, 
+                                                       Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn,
                                                        alpha_norm=alpha_norm,
                                                        normMethod=normMethod,
                                                        spincutModel=spincutModel, spincutPars=spincutPars)
@@ -386,7 +386,7 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
       plt.subplots_adjust(left=0.25, bottom=0.35)
 
       # gsf
-      [gsf_plot]=ax.plot(Emid,gsf,"o")
+      [gsf_plot]=ax.plot(Emid_Eg,gsf,"o")
       [gsf_ext_high_plt] = ax.plot(gsf_ext_higha[:,0],gsf_ext_higha[:,1],"r--", label="ext. high")
       [gsf_ext_low_plt] = ax.plot(gsf_ext_lowa[:,0],gsf_ext_lowa[:,1],"b--", label="ext. high")
 
@@ -409,10 +409,10 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
           axis_color = 'lightgoldenrodyellow'
           ext_a, ext_b =  pars['gsf_ext_high']
           ext_c, ext_d =  pars['gsf_ext_low']
-          ext_a_slider_ax  = fig.add_axes([0.25, 0.05, 0.65, 0.03], axisbg=axis_color)
-          ext_b_slider_ax  = fig.add_axes([0.25, 0.10, 0.65, 0.03], axisbg=axis_color)
-          ext_c_slider_ax  = fig.add_axes([0.25, 0.15, 0.65, 0.03], axisbg=axis_color)
-          ext_d_slider_ax  = fig.add_axes([0.25, 0.20, 0.65, 0.03], axisbg=axis_color)
+          ext_a_slider_ax  = fig.add_axes([0.25, 0.05, 0.65, 0.03], facecolor=axis_color)
+          ext_b_slider_ax  = fig.add_axes([0.25, 0.10, 0.65, 0.03], facecolor=axis_color)
+          ext_c_slider_ax  = fig.add_axes([0.25, 0.15, 0.65, 0.03], facecolor=axis_color)
+          ext_d_slider_ax  = fig.add_axes([0.25, 0.20, 0.65, 0.03], facecolor=axis_color)
 
           sext_a = Slider(ext_a_slider_ax, 'a', 0., 2., valinit=ext_a)
           sext_b = Slider(ext_b_slider_ax, 'b', 0, 5, valinit=ext_b)
@@ -426,14 +426,14 @@ def normalizeGSF(Emid, Emid_rho, rho_in, gsf_in,
               ext_c = sext_c.val
               ext_d = sext_d.val
               # save the values
-              pars['gsf_ext_low'] = np.array([ext_c,ext_d]) 
+              pars['gsf_ext_low'] = np.array([ext_c,ext_d])
               pars['gsf_ext_high'] = np.array([ext_a,ext_b])
               # apply
               gsf_ext_low1, gsf_ext_high1 = gsf_extrapolation(pars, gsf_ext_range)
-              gsf, gsf_ext_lowa, gsf_ext_higha, b_norm =  transformGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_in, gsf_in=gsf_shape, 
+              gsf, gsf_ext_lowa, gsf_ext_higha, b_norm =  transformGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_in, gsf_in=gsf_shape,
                                                                    nld_ext=nld_ext,
                                                                    gsf_ext_low=gsf_ext_low1, gsf_ext_high=gsf_ext_high1,
-                                                                   Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, 
+                                                                   Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn,
                                                                    alpha_norm=alpha_norm,
                                                                    normMethod=normMethod,
                                                                    spincutModel=spincutModel, spincutPars=spincutPars)
