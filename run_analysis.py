@@ -4,6 +4,7 @@ from io import StringIO
 import json_tricks as json # can handle np arrays
 from uncertainties import unumpy
 
+import pyximport; pyximport.install() # compile each time for dev. purpose
 import rhosig as rsg
 
 import generateRhoT as gen
