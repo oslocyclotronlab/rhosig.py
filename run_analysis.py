@@ -5,6 +5,7 @@ import json_tricks as json # can handle np arrays
 from uncertainties import unumpy
 
 import rhosig as rsg
+
 import generateRhoT as gen
 import normalization as norm
 
@@ -14,7 +15,7 @@ import utilities as ut
 # by Oslo Method
 
 def rsg_plots(rho_fit, T_fit, P_in, nld_ext=None, rho_true=None):
-	# creates 
+	# creates
 	# gsf_fit = T_fit/pow(Emid,3)  # assuming dipoles only
 	# New Figure: Oslo type matrix
 	f_mat, ax_mat = plt.subplots(2,1)
@@ -33,7 +34,7 @@ def rsg_plots(rho_fit, T_fit, P_in, nld_ext=None, rho_true=None):
 	ax = ax_mat[1]
 	Nbins_Ex, Nbins_T = np.shape(P_in)
 	P_fit = rsg.PfromRhoT(rho_fit,T_fit, Nbins_Ex, Emid, Emid_rho, Emid_Ex)
-	
+
 	from matplotlib.colors import LogNorm # To get log scaling on the z axis
 	colorbar_object = ax.pcolormesh(pltbins_Eg, pltbins_Ex, P_fit, norm=norm)
 	f_mat.colorbar(colorbar_object, ax=ax) # Add colorbar to plot
@@ -85,12 +86,6 @@ def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, rho_true=None,
 interactive = True
 makePlot = True
 
-print("Use exp 1Gen matrix")
-# load experimential data
-fname1Gen = "1Gen.m"
-data = np.loadtxt(fname1Gen, comments="!")
-print("loaded data")
-
 # try loading parameter file
 try:
 	with open("parameters.json", "r") as read_file:
@@ -99,60 +94,21 @@ try:
 except IOError:
 	pars = dict()
 
-# select fit region by hand
-# important: for now, need to adjust Nbins further down!
-oslo_matrix = data
+print("Use exp 1Gen matrix")
+# load experimential data
+fname1Gen = "1Gen.m"
+oslo_matrix, cal, Ex_array, Ex_array = ut.read_mama_2D(fname1Gen)
 
-# read pltbins/calibration from the mamafile
-def EmidsFromMama(fname):
-	# returns middle-bin values of the energy pltbins from a mama matrix
-	# energies in MeV
+# some checkes
+if len(Ex_array)!=len(Ex_array):
+    raise ValueError("For now, require Ny = Nx, otherwise routines need to be  adjusted")
+if np.any([cal["a0x"],cal["a1x"],cal["a2x"]]
+          != [cal["a0y"],cal["a1y"],cal["a2y"]]):
+    raise ValueError("For now, require xcal = ycal, otherwise energy arrays needs to be adjusted")
+else:
+    Emid = Ex_array
+    bin_width = cal["a1x"]
 
-	# calibration coefficients in MeV
-	# cal0 + cal1*ch + cal2*ch**2 for x and y
-	f = open(fname, encoding='utf8')
-	lines = f.readlines()
-	print(lines[6])
-	cal = np.genfromtxt(StringIO(lines[6]),dtype=object, delimiter=",")
-	if cal[0].decode('UTF8')!="!CALIBRATION EkeV=6":
-		raise ValueError("Could not read calibration")
-	cal = cal[1:].astype("float64")
-	cal *= 1e-3 # keV -> MeV
-	xcal = cal[:3]
-	ycal = cal[3:]
-	print("Calibration read from mama: \n xcal{0} \t ycal {1}".format(xcal, ycal))
-	# workaround until implemented otherwise
-	if np.any(xcal!=ycal):
-		raise ValueError("For now, require xcal = ycal, otherwise Emid needs to be adjusted")
-	
-	# read channel numbers
-	line = lines[8].replace(':',',') # replace ":"" as delimiter by ","
-	nChs = np.genfromtxt(StringIO(line),dtype=object, delimiter=",")
-	print("Channels read from mama: \n nChx{0} \t nChy {1}".format(nChs[1:3], nChs[3:]))
-	print(nChs[0])
-	if nChs[0].decode('UTF8')!="!DIMENSION=2":
-		raise ValueError("Could not read calibration")
-	nChs = nChs[1:].astype("int")
-	if nChs[0]!=0 or nChs[2]!=0:
-		raise ValueError("Not your day: First channel is not ch0")
-	nChx = nChs[1]+1
-	nChy = nChs[3]+1
-	if nChx!=nChy:
-		raise ValueError("For now, require nChx = nChy, otherwise Emid needs to be adjusted")
-
-	Emid = np.array(list(range(nChx)),dtype="float64") # Emid = [0, 1, 2,..., nChx-1]
-	Emid = xcal[0] + xcal[1] * Emid + xcal[2] * Emid**2
-
-	if xcal[0]!=0 or xcal[0]!=0 or ycal[0]!=0 or ycal[0]!=0:
-		raise ValueError("Ohoh: Variable binzise not yet implemented")
-	bin_width = Emid[1]-Emid[0]
-
-	return Emid, bin_width
-
-Emid, bin_width = EmidsFromMama(fname1Gen)
-
-Emid = Emid + bin_width/2
-print(Emid[0], Emid[-1])
 ## Rebin and cut matrix
 # cut array along ex and eg min/max
 Egmin = 1.0
@@ -163,12 +119,12 @@ Nbins = len(oslo_matrix) # before
 rebin_fac = 4.
 Nbins_final = int(Nbins/rebin_fac)
 rebin_fac = Nbins/float(Nbins_final)
+
 oslo_matrix, Emid_ = ut.rebin_and_shift(oslo_matrix, Emid, Nbins_final, rebin_axis=0) # rebin x axis
 oslo_matrix, Emid_ = ut.rebin_and_shift(oslo_matrix, Emid, Nbins_final, rebin_axis=1) # rebin y axis
+Emid = Emid_
 bin_width *= rebin_fac
 Nbins = Nbins_final
-Emid_ += bin_width/2
-Emid = Emid_
 # Eg
 i_Egmin = (np.abs(Emid-Egmin)).argmin()
 i_Emax = (np.abs(Emid-Emax)).argmin()
@@ -184,7 +140,7 @@ print(np.shape(oslo_matrix),np.shape(Emid),np.shape(Emid_rho))
 # def myfunc(N): return np.random.normal(N,np.sqrt(N))
 # myfunc_vec = np.vectorize(myfunc)
 # oslo_matrix=myfunc_vec(oslo_matrix)
-# approximate uncertainty my sqrt of number of counts 
+# approximate uncertainty my sqrt of number of counts
 u_oslo_matrix = unumpy.uarray(oslo_matrix, np.sqrt(oslo_matrix))
 
 # normalize each Ex row to 1 (-> get decay probability)
@@ -199,7 +155,7 @@ pltbins_Ex = np.linspace(Exmin,Eup_max,Nbins_Ex+1) # array of (start-bin?) value
 Eup_max = Egmin + Nbins_Eg * bin_width # upper bound of last bin
 pltbins_Eg = np.linspace(Egmin,Eup_max,Nbins_Eg+1) # array of (start-bin?) values used for plotting
 
-
+print(oslo_matrix.shape)
 ## decomposition of first gereration matrix P in NLD rho and transmission coefficient T
 rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid=Emid, Emid_rho=Emid_rho, Emid_Ex=Emid_Ex, fill_value=1e-1)
 print(rho_fit, T_fit)
@@ -267,13 +223,13 @@ spincutPars={"mass":240, "NLDa":25.16, "Eshift":0.12} # some dummy values
 # Gg in meV
 # Sn in MeV
 Jtarget = 1/2
-D0 = 2.2 # eV 
+D0 = 2.2 # eV
 Gg = 34. # meV --> div by 2.3 due to RAINIER input model
 Sn = 6.534 # work-around for now! -- until energy calibration is set!
 
 # extrapolations
 gsf_ext_range = np.array([0,3.,4., Sn+1])
-# trans_ext_low, trans_ext_high = norm.trans_extrapolation(Emid, T_fit=T_fit, 
+# trans_ext_low, trans_ext_high = norm.trans_extrapolation(Emid, T_fit=T_fit,
 #                                                    pars=pars, ext_range=ext_range,
 #                                                    makePlot=makePlot, interactive=interactive)
 
@@ -286,7 +242,7 @@ gsf_fit = T_fit/(2*np.pi*pow(Emid,3.))
 # assumptions in normalization: swave (currently); and equal parity
 normMethod="standard" #-- like in normalization.c/Larsen2011 eq (26)
 # normMethod="test" # -- test derived directly from Bartolomew
-gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, gsf_in=gsf_fit, 
+gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid=Emid, Emid_rho=Emid_rho, rho_in=rho_fit, gsf_in=gsf_fit,
 															   nld_ext = nld_ext,
 															   gsf_ext_range=gsf_ext_range, pars=pars,
 															   Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm,
@@ -300,7 +256,7 @@ T_fit = 2*np.pi*gsf_fit*pow(Emid,3.) # for completenes, calculate this, too
 # gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
 # gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
 
-# normalized_plots(rho_fit, gsf_fit, 
+# normalized_plots(rho_fit, gsf_fit,
 #                  gsf_ext_low, gsf_ext_high,
 #                  rho_true=rho_true, gsf_true=gsf_true, rho_true_binwidth=rho_true_binwith)
 # normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true)
