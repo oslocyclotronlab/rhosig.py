@@ -373,7 +373,7 @@ def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
   gsf_shape = gsf_in * np.exp(alpha_norm * Emid_Eg) # "shape" - correction of the transformation
 
   gsf_ext_low, gsf_ext_high = gsf_extrapolation(pars, gsf_ext_range)
-  gsf, gsf_ext_lowa, gsf_ext_higha, b_norm =  transformGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_in, gsf_in=gsf_shape,
+  gsf, gsf_ext_low, gsf_ext_high, b_norm =  transformGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_in, gsf_in=gsf_shape,
                                                        nld_ext=nld_ext,
                                                        gsf_ext_low=gsf_ext_low, gsf_ext_high=gsf_ext_high,
                                                        Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn,
@@ -387,8 +387,8 @@ def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
 
       # gsf
       [gsf_plot]=ax.plot(Emid_Eg,gsf,"o")
-      [gsf_ext_high_plt] = ax.plot(gsf_ext_higha[:,0],gsf_ext_higha[:,1],"r--", label="ext. high")
-      [gsf_ext_low_plt] = ax.plot(gsf_ext_lowa[:,0],gsf_ext_lowa[:,1],"b--", label="ext. high")
+      [gsf_ext_high_plt] = ax.plot(gsf_ext_high[:,0],gsf_ext_high[:,1],"r--", label="ext. high")
+      [gsf_ext_low_plt] = ax.plot(gsf_ext_low[:,0],gsf_ext_low[:,1],"b--", label="ext. high")
 
       Emin_low, Emax_low, Emin_high, Emax_high = gsf_ext_range
       ax.set_xlim([Emin_low,Emax_high])
@@ -429,25 +429,26 @@ def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
               pars['gsf_ext_low'] = np.array([ext_c,ext_d])
               pars['gsf_ext_high'] = np.array([ext_a,ext_b])
               # apply
-              gsf_ext_low1, gsf_ext_high1 = gsf_extrapolation(pars, gsf_ext_range)
-              gsf, gsf_ext_lowa, gsf_ext_higha, b_norm =  transformGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_in, gsf_in=gsf_shape,
+              gsf_ext_low, gsf_ext_high = gsf_extrapolation(pars, gsf_ext_range)
+              gsf, gsf_ext_low, gsf_ext_high, b_norm =  transformGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_in, gsf_in=gsf_shape,
                                                                    nld_ext=nld_ext,
-                                                                   gsf_ext_low=gsf_ext_low1, gsf_ext_high=gsf_ext_high1,
+                                                                   gsf_ext_low=gsf_ext_low, gsf_ext_high=gsf_ext_high,
                                                                    Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn,
                                                                    alpha_norm=alpha_norm,
                                                                    normMethod=normMethod,
                                                                    spincutModel=spincutModel, spincutPars=spincutPars)
               gsf_plot.set_ydata(gsf)
-              gsf_ext_high_plt.set_ydata(gsf_ext_higha[:,1])
-              gsf_ext_low_plt.set_ydata(gsf_ext_lowa[:,1])
+              gsf_ext_high_plt.set_ydata(gsf_ext_high[:,1])
+              gsf_ext_low_plt.set_ydata(gsf_ext_low[:,1])
               fig.canvas.draw_idle()
+
           sext_a.on_changed(slider_update)
           sext_b.on_changed(slider_update)
           sext_c.on_changed(slider_update)
           sext_d.on_changed(slider_update)
 
-          resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
-          button = Button(resetax, 'Reset', color=axis_color, hovercolor='0.975')
+          reset_ax = plt.axes([0.8, 0.025, 0.1, 0.04])
+          button = Button(reset_ax, 'Reset', color=axis_color, hovercolor='0.975')
 
           def reset(event):
               sext_a.reset()
@@ -456,11 +457,17 @@ def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
               sext_d.reset()
           button.on_clicked(reset)
       plt.show()
-      # repead this, to get the values from the end of the plot
-      # ext_a, ext_b =  pars['gsf_ext_high']
-      # ext_c, ext_d =  pars['gsf_ext_low']
-      # gsf_ext_low = np.column_stack((Emid_ext_low, f_gsf_ext_low(Emid_ext_low, ext_c, ext_d)))
-      # gsf_ext_high = np.column_stack((Emid_ext_high, f_gsf_ext_high(Emid_ext_high, ext_a, ext_b)))
 
+      # repead this, to get the values from the end of the plot
+      ext_a, ext_b =  pars['gsf_ext_high']
+      ext_c, ext_d =  pars['gsf_ext_low']
+      gsf_ext_low, gsf_ext_high = gsf_extrapolation(pars, gsf_ext_range)
+      gsf, gsf_ext_low, gsf_ext_high, b_norm =  transformGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_in, gsf_in=gsf_shape,
+                                                           nld_ext=nld_ext,
+                                                           gsf_ext_low=gsf_ext_low, gsf_ext_high=gsf_ext_high,
+                                                           Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn,
+                                                           alpha_norm=alpha_norm,
+                                                           normMethod=normMethod,
+                                                           spincutModel=spincutModel, spincutPars=spincutPars)
 
   return gsf, b_norm, gsf_ext_low, gsf_ext_high
