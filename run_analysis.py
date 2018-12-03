@@ -72,26 +72,6 @@ rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, E
 nldE1 = np.array([1.0,74]) # Mev, Mev^-1; higher normalization point
 nldE2 = np.array([2.5,2.9e3]) # Mev, Mev^-1; higher normalization point
 
-def load_NLDtrue(fdisc="compare/240Pu/NLD_exp_disc.dat", fcont="compare/240Pu/NLD_exp_cont.dat"):
-	# load the known leveldensity from file
-	NLD_true_disc = np.loadtxt(fdisc)
-	NLD_true_cont = np.loadtxt(fcont)
-	# apply same binwidth to continuum states
-	binwidth_goal = NLD_true_disc[1,0]-NLD_true_disc[0,0]
-	print(binwidth_goal)
-	binwidth_cont = NLD_true_cont[1,0]-NLD_true_cont[0,0]
-	Emax = NLD_true_cont[-1,0]
-	nbins = int(np.ceil(Emax/binwidth_goal))
-	Emax_adjusted = binwidth_goal*nbins # Trick to get an integer number of bins
-	bins = np.linspace(0,Emax_adjusted,nbins+1)
-	hist, edges = np.histogram(NLD_true_cont[:,0],bins=bins,weights=NLD_true_cont[:,1]*binwidth_cont)
-	NLD_true = np.zeros((nbins,2))
-	NLD_true[:nbins,0] = bins[:nbins]
-	NLD_true[:,1] = hist/binwidth_goal
-	NLD_true[:len(NLD_true_disc),1] += NLD_true_disc[:,1]
-	return NLD_true, binwidth_goal
-rho_true, rho_true_binwith = load_NLDtrue()
-
 # normalize
 rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid_nld=Emid_nld, rho=rho_fit)
 
@@ -159,16 +139,38 @@ gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid_Eg=Emid_Eg, 
 															   makePlot=makePlot, interactive=interactive)
 T_fit = 2*np.pi*gsf_fit*pow(Emid_Eg,3.) # for completenes, calculate this, too
 
-# # load "true" gsf
-# gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")
-# gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
-# gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
+# Comparison to "true" nld and gsf
+def load_NLDtrue(fdisc="compare/240Pu/NLD_exp_disc.dat", fcont="compare/240Pu/NLD_exp_cont.dat"):
+    # load the known leveldensity from file
+    NLD_true_disc = np.loadtxt(fdisc)
+    NLD_true_cont = np.loadtxt(fcont)
+    # apply same binwidth to continuum states
+    binwidth_goal = NLD_true_disc[1,0]-NLD_true_disc[0,0]
+    print(binwidth_goal)
+    binwidth_cont = NLD_true_cont[1,0]-NLD_true_cont[0,0]
+    Emax = NLD_true_cont[-1,0]
+    nbins = int(np.ceil(Emax/binwidth_goal))
+    Emax_adjusted = binwidth_goal*nbins # Trick to get an integer number of bins
+    bins = np.linspace(0,Emax_adjusted,nbins+1)
+    hist, edges = np.histogram(NLD_true_cont[:,0],bins=bins,weights=NLD_true_cont[:,1]*binwidth_cont)
+    NLD_true = np.zeros((nbins,2))
+    NLD_true[:nbins,0] = bins[:nbins]
+    NLD_true[:,1] = hist/binwidth_goal
+    NLD_true[:len(NLD_true_disc),1] += NLD_true_disc[:,1]
+    return NLD_true, binwidth_goal
 
-# splot.normalized_plots(rho_fit, gsf_fit,
-#                  gsf_ext_low, gsf_ext_high,
-#                  rho_true=rho_true, gsf_true=gsf_true, rho_true_binwidth=rho_true_binwith)
-# splot.normalized_plots(rho_fit, gsf_fit, rho_true=rho_true, gsf_true=gsf_true)
+rho_true, rho_true_binwith = load_NLDtrue()
 
-# # save parameters to file
+# load "true" gsf
+gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")
+gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
+gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
+
+splot.normalized_plots(rho_fit, gsf_fit,
+                 gsf_ext_low, gsf_ext_high, Emid_Eg=Emid_Eg,
+                 Emid_nld=Emid_nld,
+                 rho_true=rho_true, gsf_true=gsf_true, rho_true_binwidth=rho_true_binwith)
+
+# save parameters to file
 with open("parameters.json", "w") as write_file:
 	json.dump(pars, write_file)

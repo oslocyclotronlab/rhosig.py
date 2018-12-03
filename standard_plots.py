@@ -51,7 +51,7 @@ def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Egmin,nld
 
     plt.show()
 
-def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, rho_true=None, rho_true_binwidth=None, gsf_true=None):
+def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, Emid_Eg, Emid_nld, rho_true=None, rho_true_binwidth=None, gsf_true=None):
     # New Figure: compare input and output NLD and gsf
     f_mat, ax_mat = plt.subplots(2,1)
 
