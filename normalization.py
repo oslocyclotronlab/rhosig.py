@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.interpolate import interp1d
 import sys
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons
@@ -108,12 +107,12 @@ def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
     # get the normaliation, see eg. eq (26) in Larsen2011; but converted T to gsf
 
     # compose nld and gsf function of data & extrapolation
-    frho_exp = interp1d(Emid_nld,rho_in) # defualt: linear interpolation
-    fnld_ext = interp1d(nld_ext[:,0], nld_ext[:,1])  # default:linear interpolation
+    frho_exp = ut.log_interp1d(Emid_nld,rho_in)
+    fnld_ext = ut.log_interp1d(nld_ext[:,0], nld_ext[:,1])
 
-    fgsf_exp   = interp1d(Emid_Eg, gsf_in)  # default:linear interpolation
-    fgsf_ext_low = interp1d(gsf_ext_low[:,0], gsf_ext_low[:,1])  # default:linear interpolation
-    fgsf_ext_high = interp1d(gsf_ext_high[:,0], gsf_ext_high[:,1])  # default:linear interpolation
+    fgsf_exp   = ut.log_interp1d(Emid_Eg, gsf_in)
+    fgsf_ext_low = ut.log_interp1d(gsf_ext_low[:,0], gsf_ext_low[:,1])
+    fgsf_ext_high = ut.log_interp1d(gsf_ext_high[:,0], gsf_ext_high[:,1])
 
     # extapolate "around" dataset
     def frho(E):

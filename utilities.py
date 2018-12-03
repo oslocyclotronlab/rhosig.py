@@ -1,4 +1,13 @@
 import numpy as np
+from scipy import interpolate
+
+def log_interp1d(xx, yy, **kwargs):
+    """ Interpolate a 1-D function.logarithmically """
+    logy = np.log(yy)
+    lin_interp = interpolate.interp1d(xx, logy, kind='linear', **kwargs)
+    log_interp = lambda zz: np.exp(lin_interp(zz))
+    return log_interp
+
 
 def call_model(fun,pars,pars_req):
     """ Call `fun` and check if all required parameters are provided """
