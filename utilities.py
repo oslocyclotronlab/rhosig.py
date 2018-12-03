@@ -1,5 +1,15 @@
 import numpy as np
 
+def call_model(fun,pars,pars_req):
+    """ Call `fun` and check if all required parameters are provided """
+
+    # Check if required parameters are a subset of all pars given
+    if pars_req <= set(pars):
+        return fun(**pars)
+    else:
+        raise TypeError("Error: Need following arguments for this method: {0}".format(pars_req))
+
+
 def rebin_and_shift(array, E_range, N_final, rebin_axis=0):
     """ *Smart* rebin of M-dimensional array either to larger or smaller binsize.
 

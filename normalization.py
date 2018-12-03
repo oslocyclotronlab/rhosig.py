@@ -4,6 +4,9 @@ import sys
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons
 
+from spinfunctions import SpinFunctions
+import utilities as ut
+
 # normalization of NLD and GSF with the Oslo method
 
 # Normalization of the NLD
@@ -39,16 +42,9 @@ def nld_extrapolation(Ex, nldModel, nldPars={},
       # constant temperature
         return np.exp((Ex-Eshift) / T) / T;
 
-      # call a model
-      def CallModel(fun,pars,pars_req):
-        if pars_req <= set(pars): # is the required parameters are a subset of all pars given
-            return fun(**pars)
-        else:
-            raise TypeError("Error: Need following arguments for this method: {0}".format(pars_req))
-
       if model=="CT":
         pars_req = {"T", "Eshift"}
-        return CallModel(CT,pars,pars_req)
+        return ut.call_model(CT,pars,pars_req)
       else:
         raise TypeError("\nError: NLD model not supported; check spelling\n")
         return 1.
@@ -84,63 +80,6 @@ def gsf_extrapolation(pars, ext_range):
 
     return gsf_ext_low, gsf_ext_high
 
-class SpinFunctions:
-  def GetSigma2(self, Ex, J, model, pars):
-    # Get the square of the spin cut for a specified model
-
-    # different spin cut models
-    def EB05(mass, NLDa, Eshift):
-    # Von Egidy & B PRC72,044311(2005)
-    # The rigid moment of inertia formula (RMI)
-    # FG+CT
-      Eeff = Ex - Eshift
-      if Eeff<0: Eeff=0
-      sigma2 =  (0.0146 * np.power(mass, 5.0/3.0)
-                  * (1 + np.sqrt(1 + 4 * NLDa * Eeff))
-                  / (2 * NLDa))
-      return sigma2
-    def EB09_CT(mass):
-      # The constant temperature (CT) formula Von Egidy & B PRC80,054310 and NPA 481 (1988) 189
-      sigma2 =  np.power(0.98*(A**(0.29)),2)
-      return sigma2
-    def EB09_emp(mass,Pa_prime):
-      # Von Egidy & B PRC80,054310
-      # FG+CT
-      Eeff = Ex - 0.5 * Pa_prime
-      if Eeff<0: Eeff=0
-      sigma2 = 0.391 * np.power(mass, 0.675) * np.power(mass,0.312)
-      return sigma2
-
-    # call a model
-    def CallModel(fsigma,pars,pars_req):
-      if pars_req <= set(pars): # is the required parameters are a subset of all pars given
-          return fsigma(**pars)
-      else:
-          raise TypeError("Error: Need following arguments for this method: {0}".format(pars_req))
-
-    if model=="EB05":
-      pars_req = {"mass", "NLDa", "Eshift"}
-      return CallModel(EB05,pars,pars_req)
-    if model=="EB09_CT":
-      pars_req = {"mass"}
-      return CallModel(EB09_CT,pars,pars_req)
-    if model=="EB09_emp":
-      pars_req = {"mass","Pa_prime"}
-      return CallModel(EB09_emp,pars,pars_req)
-
-    else:
-      raise TypeError("\nError: Spincut model not supported; check spelling\n")
-      return 1.
-
-  def SpinDist(self, Ex, J, model, pars):
-    # Get Spin distribution given a spin-cut sigma
-    # note: input is sigma2
-    # assuming equal parity
-
-    sigma2 = self.GetSigma2(Ex, J, model=model, pars=pars)
-    # following Gilbert1965, eq (E4)
-    return (2.*J+1.) /(2.*sigma2) * np.exp(-np.power(J+0.5, 2.) / (2.*sigma2))
-
 
 def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
                  nld_ext,
@@ -163,7 +102,7 @@ def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
       # interpolate NLD and T
 
   def SpinDist(Ex, J):
-    return SpinFunctions().SpinDist(Ex=Ex, J=J, model=spincutModel, pars=spincutPars)
+    return SpinFunctions(Ex=Ex, J=J, model=spincutModel, pars=spincutPars).distibution()
 
   def GetNormFromGgD0(Gg, D0, Jtarget):
     # get the normaliation, see eg. eq (26) in Larsen2011; but converted T to gsf
