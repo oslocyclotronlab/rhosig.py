@@ -8,48 +8,89 @@ import utilities as ut
 
 # normalization of NLD and GSF with the Oslo method
 
-# Normalization of the NLD
-def normalizeNLD(E1, nldE1, E2, nldE2, Emid_nld, rho):
-  # normalization of the NLD according to the transformation eq (3), Schiller2000
-  # iputs: unnormalized nld rho, and their mid-energy bins Emid
-  #        E1(2) and nldE1(2): normalization points: Energy and NLD
+class NormNLD:
+    """ Normalize nld according to nld' = nld * A * np.exp(alpha * Ex)
+    Note: This is the transformation eq (3), Schiller2000
 
-  # find corresponding energy bins of E1 and E2
-  i_E1 = (np.abs(Emid_nld-E1)).argmin()
-  i_E2 = (np.abs(Emid_nld-E2)).argmin()
-  print(i_E1, i_E2, Emid_nld[i_E1], Emid_nld[i_E2])
+    Parameters:
+    -----------
+    nld : ndarray
+        Nuclear level density before normalization, format: [Ex_i, nld_i]
+    method : string
+        Method for normalization
+    pnorm : dict
+        Parameters needed for the chosen normalization method
+    pext : dict
+        Parameters needed for the chosen extrapolation method
+    """
+    def __init__(self, nld, method, pnorm, nldModel, pext):
+        self.nld = nld
+        self.method = method
+        self.pnorm = pnorm
+        self.pext = pext
+        self.nldModel = nldModel
 
-  # find alpha and A from the normalization points
-  alpha = np.log( (nldE2 * rho[i_E1]) / (nldE1*rho[i_E2]) ) / (E2-E1)
-  A = nldE2 / rho[i_E2] * np.exp(- alpha * E2)
-  print(A)
-  print("Normalization parameters: \n alpha={0:1.2e} \t A={1:1.2e} ".format(alpha, A))
+        if method is "2points":
+            pars_req = {"nldE1", "nldE2"}
+            nld_norm, A_norm, alpha_norm = ut.call_model(self.norm_2points,pnorm,pars_req)
+            nld_ext = self.extrapolate()
+        else:
+            raise TypeError("\nError: Normalization model not supported; check spelling\n")
 
-  # apply the transformation
-  rho *= A * np.exp(alpha*Emid_nld)
-  return rho, alpha, A
+        self.nld_norm = nld_norm
+        self.A_norm = A_norm
+        self.alpha_norm = alpha_norm
+        self.nld_ext = nld_ext
 
-# extrapolations of the gsf
-def nld_extrapolation(Ex, nldModel, nldPars={},
-                      makePlot=True):
+    def norm_2points(self, **kwargs):
+        """ Normalize to two given fixed points within "exp". nld Ex-trange
 
-    def GetExtrapolation(Ex, model=nldModel, pars=nldPars):
-      # Get Extrapolation values
+        Input:
+        ------
+        nldE1 : np.array([E1, nldE1])
+        nldE2 : np.array([E2, nldE2])
 
-      # different extrapolation models
-      def CT(T, Eshift):
-      # constant temperature
-        return np.exp((Ex-Eshift) / T) / T;
 
-      if model=="CT":
-        pars_req = {"T", "Eshift"}
-        return ut.call_model(CT,pars,pars_req)
-      else:
-        raise TypeError("\nError: NLD model not supported; check spelling\n")
-        return 1.
+        """
+        Ex = self.nld[:,0]
+        nld = self.nld[:,1]
+        E1, nldE1 = self.pnorm["nldE1"]
+        E2, nldE2 = self.pnorm["nldE2"]
 
-    nld_ext = GetExtrapolation(Ex)
-    return np.column_stack((Ex,nld_ext))
+        fnld = ut.log_interp1d(Ex,nld, bounds_error=True)
+
+        # find alpha and A from the normalization points
+        alpha = np.log( (nldE2 * fnld(E1)) / (nldE1*fnld(E2)) ) / (E2-E1)
+        A = nldE2 / fnld(E2) * np.exp(- alpha * E2)
+        print(A)
+        print("Normalization parameters: \n alpha={0:1.2e} \t A={1:1.2e} ".format(alpha, A))
+
+        # apply the transformation
+        nld_norm = nld * A * np.exp(alpha*Ex)
+        return nld_norm, A, alpha
+
+    def extrapolate(self):
+        """ Get Extrapolation values """
+
+        model = self.nldModel
+        pars = self.pext
+
+        # Earr for extrapolation
+        Earr = np.linspace(pars["ext_range"][0],pars["ext_range"][1], num=50)
+
+        # different extrapolation models
+        def CT(T, Eshift, **kwargs):
+            """ Constant Temperature"""
+            return np.exp((Earr-Eshift) / T) / T;
+
+        if model=="CT":
+            pars_req = {"T", "Eshift"}
+            values = ut.call_model(CT,pars,pars_req)
+        else:
+            raise TypeError("\nError: NLD model not supported; check spelling\n")
+
+        extrapolation = np.c_[Earr,values]
+        return extrapolation
 
 
 # extrapolations of the gsf

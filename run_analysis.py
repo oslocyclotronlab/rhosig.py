@@ -66,32 +66,26 @@ oslo_matrix_err = unumpy.std_devs(u_oslo_matrix)
 
 ## decomposition of first gereration matrix P in NLD rho and transmission coefficient T
 rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex=Emid_Ex, fill_value=1e-1)
-# print(rho_fit, T_fit)
 
 ## normalize the NLD
-nldE1 = np.array([1.0,74]) # Mev, Mev^-1; higher normalization point
-nldE2 = np.array([2.5,2.9e3]) # Mev, Mev^-1; higher normalization point
-
-# normalize
-rho_fit, alpha_norm, A_norm = norm.normalizeNLD(nldE1[0], nldE1[1], nldE2[0], nldE2[1], Emid_nld=Emid_nld, rho=rho_fit)
+pnld_norm = {}
+pnld_norm["nldE1"] = np.array([1.0,74]) # Mev, Mev^-1; higher norm point
+pnld_norm["nldE2"] = np.array([2.5,2.9e3]) # Mev, Mev^-1; higher norm point
 
 # extrapolation
-ext_range = np.array([2.5,7.])
-nldPars = dict()
-# find parameters
-nldModel="CT"
-key = 'nld_CT'
-# if key not in pars:
-pars['nld_CT']= np.array([0.55,-1.3])
+pnld_ext = {}
+pnld_ext["ext_range"] = np.array([2.5,7.]) # extrapolation range
+pnld_ext['T'] =  0.47
+pnld_ext['Eshift'] = -0.8
 
-nldPars['T'], nldPars['Eshift'] = pars['nld_CT']
+nldInst = norm.NormNLD(nld=np.c_[Emid_nld, rho_fit],
+                       method="2points", pnorm=pnld_norm,
+                       nldModel="CT", pext=pnld_ext)
 
-# extrapolations of the gsf
-Emid_Eg_ = np.linspace(ext_range[0],ext_range[1])
-nld_ext = norm.nld_extrapolation(Emid_Eg_,
-							 nldModel=nldModel, nldPars=nldPars,
-							 makePlot=makePlot)
-
+rho_fit = nldInst.nld_norm
+nld_ext = nldInst.nld_ext
+A_norm = nldInst.A_norm
+alpha_norm = nldInst.alpha_norm
 
 splot.rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex = Emid_Ex, nld_ext=nld_ext, rho_true=None, **pars_fg)
 # rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
