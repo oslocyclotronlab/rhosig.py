@@ -462,6 +462,7 @@ def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
 
 
 def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
+                 gsf_referece,
                  nld_ext,
                  gsf_ext_range, pars,
                  Jtarget, D0, Gg, Sn, alpha_norm,
@@ -475,6 +476,7 @@ def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
     # Emid_Eg, rho_in, gsf in MeV, MeV^-1, MeV^-3
     # nld_ext: extrapolation of nld
     # gsf_ext_range: extrapolation ranges of gsf
+    # gsf_referece .refernce for plotting and normalization
     # Jtarget in 1
     # D0 in eV
     # Gg in meV
@@ -555,11 +557,8 @@ def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
 
       legend = ax.legend()
 
-      # load "true" gsf
-      gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")
-      gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
-      gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
-      if gsf_true is not None: ax.plot(gsf_true[:,0],gsf_true[:,1])
+      # load referece gsf
+      if gsf_referece is not None: ax.plot(gsf_referece[:,0],gsf_referece[:,1])
 
       if interactive: # interactively change the extrapolation
           # Define an axes area and draw a slider in it

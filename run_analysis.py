@@ -28,8 +28,9 @@ except IOError:
 	pars = dict()
 
 # load 1Gen matrix data
+data_folder = "synthetic_data/Jint_EB06_mama_4res/"
 print("Use exp 1Gen matrix")
-fname1Gen = "1Gen.m"
+fname1Gen = data_folder+"/1Gen.m"
 oslo_matrix, cal, Ex_array, Ex_array = ut.read_mama_2D(fname1Gen)
 # some checkes
 if len(Ex_array)!=len(Ex_array):
@@ -65,7 +66,13 @@ oslo_matrix_err = unumpy.std_devs(u_oslo_matrix)
 ##############
 
 ## decomposition of first gereration matrix P in NLD rho and transmission coefficient T
-rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex=Emid_Ex, fill_value=1e-1)
+try:
+    rho_fit = np.load("rho_fit.npy")
+    T_fit = np.load("T_fit.npy")
+except:
+    rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex=Emid_Ex, fill_value=1e-1)
+    np.save("rho_fit.npy",rho_fit)
+    np.save("T_fit.npy",T_fit)
 
 ## normalize the NLD
 
@@ -129,7 +136,7 @@ spincutPars={"mass":240, "NLDa":25.16, "Eshift":0.12} # some dummy values
 # Sn in MeV
 Jtarget = 1/2
 D0 = 2.2 # eV
-Gg = 34 # meV --> div by 2.3 due to RAINIER input model
+Gg = 43 # meV should this be updated? --> div by 2.3 due to RAINIER input model
 Sn = 6.534 # work-around for now! -- until energy calibration is set!
 
 # extrapolations
@@ -157,18 +164,24 @@ try:
 except IndexError:
         pass
 
+# load "true" gsf
+gsf_true_all = np.loadtxt(data_folder+"/GSFTable_py.dat")
+gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
+gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
 
 gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_fit, gsf_in=gsf_fit,
-															   nld_ext = nld_ext,
-															   gsf_ext_range=gsf_ext_range, pars=pars,
-															   Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm,
-															   normMethod=normMethod,
-															   spincutModel=spincutModel, spincutPars=spincutPars,
-															   makePlot=makePlot, interactive=interactive)
+     gsf_referece = gsf_true,
+     nld_ext = nld_ext,
+     gsf_ext_range=gsf_ext_range, pars=pars,
+     Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm,
+     normMethod=normMethod,
+     spincutModel=spincutModel, spincutPars=spincutPars,
+     makePlot=makePlot, interactive=interactive)
+
 T_fit = 2*np.pi*gsf_fit*pow(Emid_Eg,3.) # for completenes, calculate this, too
 
 # Comparison to "true" nld and gsf
-def load_NLDtrue(fdisc="compare/240Pu/NLD_exp_disc.dat", fcont="compare/240Pu/NLD_exp_cont.dat"):
+def load_NLDtrue(fdisc=data_folder+"/NLD_exp_disc.dat", fcont=data_folder+"NLDcont.dat"):
     # load the known leveldensity from file
     NLD_true_disc = np.loadtxt(fdisc)
     NLD_true_cont = np.loadtxt(fcont)
@@ -188,11 +201,6 @@ def load_NLDtrue(fdisc="compare/240Pu/NLD_exp_disc.dat", fcont="compare/240Pu/NL
     return NLD_true, binwidth_goal
 
 rho_true, rho_true_binwith = load_NLDtrue()
-
-# load "true" gsf
-gsf_true_all = np.loadtxt("compare/240Pu/GSFTable_py.dat")
-gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
-gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
 
 splot.normalized_plots(rho_fit, gsf_fit,
                  gsf_ext_low, gsf_ext_high, Emid_Eg=Emid_Eg,
