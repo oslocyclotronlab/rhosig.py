@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 
 import json_tricks as json # can handle np arrays
@@ -149,7 +150,7 @@ gsf_ext_range = np.array([0,3.,4., Sn+1])
 ###################################################################
 # calculate the gsf
 # assumption: Dipole transition only (therefore: E^(2L+1) -> E^3)
-gsf_fit = T_fit/(2*np.pi*pow(Emid_Eg,3.))
+gsf_fit = T_fit/(2.*np.pi*pow(Emid_Eg,3.))
 
 # assumptions in normalization: swave (currently); and equal parity
 normMethod="standard" #-- like in normalization.c/Larsen2011 eq (26)
@@ -178,7 +179,7 @@ gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid_Eg=Emid_Eg, 
      spincutModel=spincutModel, spincutPars=spincutPars,
      makePlot=makePlot, interactive=interactive)
 
-T_fit = 2*np.pi*gsf_fit*pow(Emid_Eg,3.) # for completenes, calculate this, too
+T_fit = 2.*np.pi*gsf_fit*pow(Emid_Eg,3.) # for completenes, calculate this, too
 
 # Comparison to "true" nld and gsf
 def load_NLDtrue(fdisc=data_folder+"/NLD_exp_disc.dat", fcont=data_folder+"NLDcont.dat"):

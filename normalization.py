@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
@@ -210,7 +211,7 @@ class NormNLD:
         # bins = np.linspace(0,Emax,nbins+1)
         binsize = Emids[1] - Emids[0]
         bin_edges = np.append(Emids, Emids[-1]+binsize)
-        bin_edges -= binsize/2.
+        bin_edges -= binsize/2
 
         hist, _ = np.histogram(energies,bins=bin_edges)
         hist = hist.astype(float)/binsize # convert to levels/MeV
@@ -363,11 +364,11 @@ def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
         if Jtarget == 0: #  if(Jtarget == 0.0)      I_i = 1/2 => I_f = 1/2, 3/2
           return SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
         elif Jtarget == 1/2: #  if(Jtarget == 0.5)  I_i = 0, 1  => I_f = 0, 1, 2
-          return SpinDist(Ex,Jtarget-1/2) + 2*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
-        elif Jtarget == 1: #  if(Jtarget == 0.5)     I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2
-          return 2*SpinDist(Ex,Jtarget-1/2) + 2*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
-        elif Jtarget > 1: #  J_target > 1   ->       I_i = Jt-1/2, Jt+1/2  => I_f = Jt-3/2, Jt-1/2, Jt+3/2, Jt+5/2
-          return SpinDist(Ex,Jtarget-3/2) + 2*SpinDist(Ex,Jtarget-1/2) + 2*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
+          return SpinDist(Ex,Jtarget-1/2) + 2.*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
+        elif Jtarget == 1.: #  if(Jtarget == 0.5)     I_i = 1/2, 3/2  => I_f = 1/2, 3/2, 5/2
+          return 2.*SpinDist(Ex,Jtarget-1/2) + 2.*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
+        elif Jtarget > 1.: #  J_target > 1   ->       I_i = Jt-1/2, Jt+1/2  => I_f = Jt-3/2, Jt-1/2, Jt+3/2, Jt+5/2
+          return SpinDist(Ex,Jtarget-3/2) + 2.*SpinDist(Ex,Jtarget-1/2) + 2.*SpinDist(Ex,Jtarget+1/2) + SpinDist(Ex,Jtarget+3/2)
         else:
           ValueError("Negative J not supported")
       # perform integration by summation
@@ -381,7 +382,7 @@ def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
       # factor of 2 because of equi-parity (we use total nld in the
       # integral above, instead of the "correct" nld per parity)
       # Units: G / (D) = meV / (eV*1e3) = 1
-      norm = 2 * Gg / ( integral * D0*1e3)
+      norm = 2. * Gg / ( integral * D0*1e3)
 
     elif(normMethod=="test"):
       # experimental new version of the spin sum and integration
@@ -398,8 +399,11 @@ def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
       # (by dipole decay <- assumption)
       if Jtarget == 0:     #  J_target = 0   ->    I_i = 1/2 => I_f = 1/2, 3/2
         # I_residual,i = 1/2 -> I_f = 0, 1
-        rho0pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget0+1/2)
+        rho0pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget+1/2)
         accessible_spin0 = lambda Ex, Jtarget: SpinDist(Ex,Jtarget-1/2) + SpinDist(Ex,Jtarget+1/2)
+        # only one spin accessible
+        rho1pi = None
+        accessible_spin1 = lambda Ex, Jtarget: None
       elif Jtarget == 1/2: #  J_target = 1/2   ->      I_i = 0, 1  => I_f = 0, 1, 2
         # I_residual,i = 0 -> I_f = 1
         rho0pi = 1/2 * frho(Sn) * SpinDist(Sn,Jtarget-1/2)
@@ -431,17 +435,21 @@ def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
           if Eg<=Emid_nld[0]: print("warning: Eg < {0}; check rho interpolate".format(Emid_nld[0]))
           if Ex<=Emid_nld[0]: print("warning: at Eg = {0}: Ex <{1}; check rho interpolate".format(Eg, Emid_nld[0]))
           integral0 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin0(Ex, Jtarget)
-          integral1 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin1(Ex, Jtarget)
+          if rho1pi is not None:
+              integral1 += np.power(Eg,3) * fgsf(Eg) * frho(Ex) * accessible_spin1(Ex, Jtarget)
       # simplification: <Gg>_experimental is usually reported as the average over all individual
       # Gg's. Due to a lack of further knowledge, we assume that there are equally many transisions from target states
-      # with It+1/2 as from It-1/2. Then we find:
+      # with It+1/2 as from It-1/2 Then we find:
       # <Gg> = ( <Gg>_(I+1/2) + <Gg>_(I+1/2) ) / 2
-      integral = (1/rho0pi * integral0 + 1/rho1pi * integral1)/2
+      if rho1pi is None:
+          integral = 1./rho0pi * integral0
+      else:
+          integral = (1./rho0pi * integral0 + 1./rho1pi * integral1)/2
       integral *= stepSize
       # factor of 2 because of equi-parity (we use total nld in the
       # integral above, instead of the "correct" nld per parity)
       # Units: G / (integral) = meV / (MeV*1e9) = 1
-      norm = 2 * Gg / ( integral *1e9)
+      norm = 2. * Gg / ( integral *1e9)
 
     return norm
 
