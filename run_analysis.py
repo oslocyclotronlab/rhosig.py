@@ -68,26 +68,49 @@ oslo_matrix_err = unumpy.std_devs(u_oslo_matrix)
 rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex=Emid_Ex, fill_value=1e-1)
 
 ## normalize the NLD
-pnld_norm = {}
-pnld_norm["nldE1"] = np.array([1.0,74]) # Mev, Mev^-1; higher norm point
-pnld_norm["nldE2"] = np.array([2.5,2.9e3]) # Mev, Mev^-1; higher norm point
 
-# extrapolation
-pnld_ext = {}
+###
+# # 2points
+# pnld_norm = {}
+# pnld_norm["nldE1"] = np.array([1.0,74]) # Mev, Mev^-1; higher norm point
+# pnld_norm["nldE2"] = np.array([2.5,2.9e3]) # Mev, Mev^-1; higher norm point
+# pnld_ext = {}
+# pnld_ext["ext_range"] = np.array([2.5,7.]) # extrapolation range
+# pnld_ext['T'] =  0.425
+# pnld_ext['Eshift'] =  -0.456
+###
+
+###
+# # find_norm
+pnld_norm = {}
+pnld_norm["E1_low"] = 0.3
+pnld_norm["E2_low"] = 1.
+pnld_norm["E1_high"] = 3.0
+pnld_norm["E2_high"] = 4.
+pnld_norm["nld_Sn"] = np.array([6.543,32e6])
+pnld_ext = {} # automatically found for CT
 pnld_ext["ext_range"] = np.array([2.5,7.]) # extrapolation range
-pnld_ext['T'] =  0.47
-pnld_ext['Eshift'] = -0.8
+###
+
+
+# fake an uncertainty
+nld_err = rho_fit * 0.1
+rho_fit = np.c_[rho_fit,nld_err]
 
 nldInst = norm.NormNLD(nld=np.c_[Emid_nld, rho_fit],
-                       method="2points", pnorm=pnld_norm,
+                       method="find_norm", pnorm=pnld_norm,
                        nldModel="CT", pext=pnld_ext)
+
+# nldInst.find_norm()
 
 rho_fit = nldInst.nld_norm
 nld_ext = nldInst.nld_ext
 A_norm = nldInst.A_norm
 alpha_norm = nldInst.alpha_norm
+discretes = nldInst.discretes
 
-splot.rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex = Emid_Ex, nld_ext=nld_ext, rho_true=None, **pars_fg)
+splot.rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex = Emid_Ex, nld_ext=nld_ext, rho_true=None, discretes=discretes, **pars_fg)
+
 # rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
 
 ## normalization of the gsf
@@ -106,7 +129,7 @@ spincutPars={"mass":240, "NLDa":25.16, "Eshift":0.12} # some dummy values
 # Sn in MeV
 Jtarget = 1/2
 D0 = 2.2 # eV
-Gg = 34. # meV --> div by 2.3 due to RAINIER input model
+Gg = 34 # meV --> div by 2.3 due to RAINIER input model
 Sn = 6.534 # work-around for now! -- until energy calibration is set!
 
 # extrapolations
@@ -124,6 +147,17 @@ gsf_fit = T_fit/(2*np.pi*pow(Emid_Eg,3.))
 # assumptions in normalization: swave (currently); and equal parity
 normMethod="standard" #-- like in normalization.c/Larsen2011 eq (26)
 # normMethod="test" # -- test derived directly from Bartolomew
+try:
+    dim = rho_fit.shape[1]
+    if dim == 3:
+        rho_fit_err = rho_fit[:,2]
+        rho_fit = rho_fit[:,1]
+    elif dim == 2:
+        rho_fit = rho_fit[:,1]
+except IndexError:
+        pass
+
+
 gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_fit, gsf_in=gsf_fit,
 															   nld_ext = nld_ext,
 															   gsf_ext_range=gsf_ext_range, pars=pars,

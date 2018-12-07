@@ -2,13 +2,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import rhosig as rsg
 
-def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Egmin,nld_ext=None, rho_true=None, **kwargs):
+def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Egmin,nld_ext=None, rho_true=None, discretes=None, **kwargs):
     Nbins_Ex, Nbins_Eg= np.shape(P_in) # after
     bin_width = Emid_Eg[1]- Emid_Eg[0]
     Eup_max = Exmin + Nbins_Ex * bin_width # upper bound of last bin
     pltbins_Ex = np.linspace(Exmin,Eup_max,Nbins_Ex+1) # array of (start-bin?) values used for plotting
     Eup_max = Egmin + Nbins_Eg * bin_width # upper bound of last bin
     pltbins_Eg = np.linspace(Egmin,Eup_max,Nbins_Eg+1) # array of (start-bin?) values used for plotting
+
+    try:
+        dim = rho_fit.shape[1]
+        if dim == 3:
+            rho_fit_err = rho_fit[:,2]
+            rho_fit = rho_fit[:,1]
+        elif dim == 2:
+            rho_fit = rho_fit[:,1]
+    except IndexError:
+        pass
 
     # creates
     # gsf_fit = T_fit/pow(Emid_Eg,3)  # assuming dipoles only
@@ -43,7 +53,12 @@ def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Egmin,nld
     # NLD
     if nld_ext is not None: ax.plot(nld_ext[:,0],nld_ext[:,1],"b--")
     if rho_true is not None: ax.plot(Emid_nld,rho_true)
-    ax.plot(Emid_nld,rho_fit,"o")
+
+    try:
+        ax.errorbar(Emid_nld,rho_fit,yerr=rho_fit_err,fmt="o")
+    except:
+        ax.plot(Emid_nld,rho_fit,"o")
+    ax.plot(discretes[:,0],discretes[:,1],"k.-")
 
     ax.set_yscale('log')
     ax.set_xlabel(r"$E_x \, \mathrm{(MeV)}$")

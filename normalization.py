@@ -20,6 +20,8 @@ class NormNLD:
         Method for normalization
     pnorm : dict
         Parameters needed for the chosen normalization method
+    nldModel : string
+        NLD Model for extrapolation
     pext : dict
         Parameters needed for the chosen extrapolation method
     """
@@ -34,13 +36,22 @@ class NormNLD:
             pars_req = {"nldE1", "nldE2"}
             nld_norm, A_norm, alpha_norm = ut.call_model(self.norm_2points,pnorm,pars_req)
             nld_ext = self.extrapolate()
+            levels_smoothed, _ = self.discretes(Emids=nld[:,0],resolution=0.1)
+            levels_smoothed = levels_smoothed[0:13]
+            self.discretes = np.c_[nld[0:13,0],levels_smoothed]
+
+            self.nld_norm = nld_norm
+            self.A_norm = A_norm
+            self.alpha_norm = alpha_norm
+            self.nld_ext = nld_ext
+        elif method is "find_norm":
+            self.A_norm, self.alpha_norm, self.T= self.find_norm()
+            # print(T)
+            self.nld_ext = self.extrapolate()
+            self.nld_norm = self.normalize(self.nld, self.A_norm, self.alpha_norm)
+            self.nld_norm = self.nld_norm
         else:
             raise TypeError("\nError: Normalization model not supported; check spelling\n")
-
-        self.nld_norm = nld_norm
-        self.A_norm = A_norm
-        self.alpha_norm = alpha_norm
-        self.nld_ext = nld_ext
 
     def norm_2points(self, **kwargs):
         """ Normalize to two given fixed points within "exp". nld Ex-trange
@@ -78,19 +89,186 @@ class NormNLD:
         # Earr for extrapolation
         Earr = np.linspace(pars["ext_range"][0],pars["ext_range"][1], num=50)
 
-        # different extrapolation models
-        def CT(T, Eshift, **kwargs):
-            """ Constant Temperature"""
-            return np.exp((Earr-Eshift) / T) / T;
+        # # different extrapolation models
+        # def CT(T, Eshift, **kwargs):
+        #     """ Constant Temperature"""
+        #     return np.exp((Earr-Eshift) / T) / T;
 
         if model=="CT":
             pars_req = {"T", "Eshift"}
-            values = ut.call_model(CT,pars,pars_req)
+            if pars.has_key("nld_Sn") and pars.has_key("Eshift")==False:
+                pars["Eshift"] = self.EshiftFromT(pars["T"], pars["nld_Sn"])
+            pars["Earr"] = Earr
+            values = ut.call_model(self.CT,pars,pars_req)
         else:
             raise TypeError("\nError: NLD model not supported; check spelling\n")
 
         extrapolation = np.c_[Earr,values]
         return extrapolation
+
+    @staticmethod
+    def normalize(nld, A, alpha):
+        """ Normalize nld
+
+        Parameters:
+        -----------
+        nld : Unnormalized nld, format [Ex, nld]_i
+        A : Transformation parameter
+        alpha : Transformation parameter
+
+        Returns:
+        --------
+        nld_norm : Normalized NLD
+        """
+        Ex = nld[:,0]
+        nld_val = nld[:,1]
+        if nld.shape[1]==3:
+            rel_unc = nld[:,2]/nld[:,1]
+        nld_norm = nld_val * A * np.exp(alpha*Ex)
+        if nld.shape[1]==3:
+            nld_norm = np.c_[nld_norm,nld_norm * rel_unc]
+        nld_norm = np.c_[Ex,nld_norm]
+        return nld_norm
+
+    @staticmethod
+    def CT(Earr, T, Eshift, **kwargs):
+        """ Constant Temperature nld"""
+        return np.exp((Earr-Eshift) / T) / T;
+
+    @staticmethod
+    def EshiftFromT(T, nld_Sn):
+        """ Eshift from T for CT formula """
+        return nld_Sn[0] - T*np.log(nld_Sn[1]*T)
+
+    def find_norm(self):
+        """
+        Automatically find best normalization taking into account
+        discrete levels at low energy and extrapolation at high energies
+        via chi^2 minimization.
+
+        TODO: Check validity of the assumed chi^2 "cost" function
+
+        Returns:
+        --------
+        res.x: ndarray
+            Best fit normalization parameters `[A, alpha, T]`
+        """
+
+        from scipy.optimize import curve_fit
+
+        nld = self.nld
+        #further parameters
+        pnorm = self.pnorm
+        E1_low = pnorm["E1_low"]
+        E2_low = pnorm["E2_low"]
+
+        E1_high = pnorm["E1_high"]
+        E2_high = pnorm["E2_high"]
+        nld_Sn = pnorm["nld_Sn"]
+
+        # slice out comparison regions
+        idE1 = np.abs(nld[:,0]-E1_low).argmin()
+        idE2 = np.abs(nld[:,0]-E2_low).argmin()
+        data_low = nld[idE1:idE2,:]
+
+        # Get discretes (for the lower energies)
+        levels_smoothed, _ = self.discretes(Emids=nld[:,0],resolution=0.1)
+        levels_smoothed = levels_smoothed[idE1:idE2]
+        self.discretes = np.c_[nld[idE1:idE2,0],levels_smoothed]
+
+        idE1 = np.abs(nld[:,0]-E1_high).argmin()
+        idE2 = np.abs(nld[:,0]-E2_high).argmin()
+        data_high = nld[idE1:idE2,:]
+
+        if self.nldModel == "CT":
+            nldModel = self.CT
+        else:
+            print("Other models not yet supported in this fit")
+
+        from scipy.optimize import differential_evolution
+        res = differential_evolution(self.chi2_disc_ext,
+                                     bounds=[(-10,10),(-10,10),(0.01,1)],
+                                     args=(nldModel, nld_Sn, data_low, data_high, levels_smoothed))
+        print("Result from find_norm / differential evolution:\n", res)
+
+        T = res.x[2]
+        self.pext["T"] = T
+        self.pext["Eshift"] = self.EshiftFromT(T, nld_Sn)
+
+        return res.x
+
+    @staticmethod
+    def discretes(Emids, fname="discrete_levels.txt", resolution=0.1):
+        """ Get discrete levels, and smooth by some resolution [MeV]
+        and the bins centers [MeV]
+        For now: Assume linear binning """
+        energies = np.loadtxt(fname)
+        energies /= 1e3 # convert to MeV
+
+        # Emax = energies[-1]
+        # nbins = int(np.ceil(Emax/binsize))
+        # bins = np.linspace(0,Emax,nbins+1)
+        binsize = Emids[1] - Emids[0]
+        bin_edges = np.append(Emids, Emids[-1]+binsize)
+        bin_edges -= binsize/2.
+
+        hist, _ = np.histogram(energies,bins=bin_edges)
+        hist = hist.astype(float)/binsize # convert to levels/MeV
+
+        from scipy.ndimage import gaussian_filter1d
+        hist_smoothed = gaussian_filter1d(hist, sigma=resolution/binsize)
+
+        return hist_smoothed, hist
+
+    @staticmethod
+    def chi2_disc_ext(x,
+                     nldModel, nld_Sn, data_low, data_high, levels_smoothed):
+        """
+        Chi^2 between discrete levels at low energy and extrapolation at high energies
+
+        TODO: Check validity of the assumed chi^2 "cost" function
+        Currently, I assume that I should weight with the number of points
+        in each dataset (highvs low energies), such that the discretes
+        and nld(Sn) will be weighted the same. But unsure whether that will produce the correct uncertainties (once we figured how to calculate them.)
+
+        Note: Currently working with CT extrapolation only, but should be little effort to change.
+
+        Parameters:
+        -----------
+        x : ndarray
+            Optimization argument in form of a 1D array
+        nldModel : string
+            NLD Model for extrapolation
+        nld_Sn : tuple
+            nld at Sn of form `[Ex, value]`
+        data_low : ndarray
+            Unnormalized nld at lower energies to be compared to discretes of form `[Ex, value]`
+        data_high : ndarray
+            Unnormalized nld at higher energies to be compared to `nldModel` of form `[Ex, value]`
+        levels_smoothed: ndarray
+            Discrete levels smoothed by experimental resolution of form `[value]`
+
+        """
+        A, alpha = x[:2]
+        T = x[2]
+
+        data = NormNLD.normalize(data_low, A, alpha)
+        n_low = len(data)
+        chi2 = (data[:,1] - levels_smoothed)**2.
+        if data.shape[1] == 3: # weight with uncertainty, if existent
+            chi2 /= data[:,2]**2
+        chi2_low = np.sum(chi2)/n_low
+
+        data = NormNLD.normalize(data_high, A, alpha)
+        n_high = len(data)
+        Eshift = NormNLD.EshiftFromT(T, nld_Sn)
+        chi2 = (data[:,1] - nldModel(data[:,0], T, Eshift))** 2.
+        if data.shape[1] == 3: # weight with uncertainty, if existent
+            chi2 /= data[:,2]**2
+        chi2_high = np.sum(chi2)/n_high
+
+        chi2 = (chi2_low + chi2_high)*(n_high+n_low)
+        return chi2
 
 
 # extrapolations of the gsf
