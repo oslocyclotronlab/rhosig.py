@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import rhosig as rsg
 
-def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Emax, Egmin,nld_ext=None, rho_true=None, discretes=None, **kwargs):
+def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Emax, Egmin, rho_true=None, **kwargs):
     Nbins_Ex, Nbins_Eg= np.shape(P_in) # after
     bin_width = Emid_Eg[1]- Emid_Eg[0]
     Eup_max = Exmin + Nbins_Ex * bin_width # upper bound of last bin
@@ -47,23 +47,6 @@ def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Emax, Egm
     ax.set_xlabel(r"$E_\gamma \, \mathrm{(MeV)}$")
     ax.set_ylabel(r'$E_x \, \mathrm{(MeV)}$')
 
-    # New Figure: compare input and output NLD
-    f_mat, ax = plt.subplots(1,1)
-
-    # NLD
-    if nld_ext is not None: ax.plot(nld_ext[:,0],nld_ext[:,1],"b--")
-    if rho_true is not None: ax.plot(Emid_nld,rho_true)
-
-    try:
-        ax.errorbar(Emid_nld,rho_fit,yerr=rho_fit_err,fmt="o")
-    except:
-        ax.plot(Emid_nld,rho_fit,"o")
-    ax.plot(discretes[:,0],discretes[:,1],"k.-")
-
-    ax.set_yscale('log')
-    ax.set_xlabel(r"$E_x \, \mathrm{(MeV)}$")
-    ax.set_ylabel(r'$\rho \, \mathrm{(MeV)}$')
-
     # "does it work" plots
     # = comparison of slices of the 1st gen matrixes
     Nx, Ny = 3, 2
@@ -86,6 +69,27 @@ def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Emax, Egm
     ax_mat[0,0].legend()
 
     plt.tight_layout()
+    plt.show()
+
+
+
+def nld_plot(rho_fit, T_fit, Emid_nld, nld_ext=None, rho_true=None, discretes=None, **kwargs):
+    # New Figure: compare input and output NLD
+    f_mat, ax = plt.subplots(1,1)
+
+    # NLD
+    if nld_ext is not None: ax.plot(nld_ext[:,0],nld_ext[:,1],"b--")
+    if rho_true is not None: ax.plot(Emid_nld,rho_true)
+
+    try:
+        ax.errorbar(Emid_nld,rho_fit,yerr=rho_fit_err,fmt="o")
+    except:
+        ax.plot(Emid_nld,rho_fit,"o")
+    ax.plot(discretes[:,0],discretes[:,1],"k.-")
+
+    ax.set_yscale('log')
+    ax.set_xlabel(r"$E_x \, \mathrm{(MeV)}$")
+    ax.set_ylabel(r'$\rho \, \mathrm{(MeV)}$')
     plt.show()
 
 def map_iterator_to_grid(counter, Nx):

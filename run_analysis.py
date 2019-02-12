@@ -85,6 +85,8 @@ oslo_matrix = unumpy.nominal_values(u_oslo_matrix)
 oslo_matrix_err = unumpy.std_devs(u_oslo_matrix)
 ##############
 
+splot.rsg_plots(rho_fit[:,0], T_fit, P_in=oslo_matrix, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex = Emid_Ex, rho_true=None, **pars_fg)
+
 ## normalize the NLD
 
 ###
@@ -129,6 +131,7 @@ A_norm = nldInst.A_norm
 alpha_norm = nldInst.alpha_norm
 discretes = nldInst.discretes
 
+splot.nld_plot(rho_fit[:,1], T_fit, Emid_nld=Emid_nld, nld_ext=nld_ext, discretes=discretes)
 # rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
 
 ## normalization of the gsf
