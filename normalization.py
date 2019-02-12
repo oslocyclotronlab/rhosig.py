@@ -97,7 +97,7 @@ class NormNLD:
 
         if model=="CT":
             pars_req = {"T", "Eshift"}
-            if pars.has_key("nld_Sn") and pars.has_key("Eshift")==False:
+            if ("nld_Sn" in pars) and ("Eshift" in pars == False):
                 pars["Eshift"] = self.EshiftFromT(pars["T"], pars["nld_Sn"])
             pars["Earr"] = Earr
             values = ut.call_model(self.CT,pars,pars_req)
@@ -196,6 +196,10 @@ class NormNLD:
         self.pext["T"] = T
         self.pext["Eshift"] = self.EshiftFromT(T, nld_Sn)
 
+        import multinest as ml
+
+        ml.run_nld_2regions(parameters = ["A", "alpha", "T"], args=(nldModel, nld_Sn, data_low, data_high, levels_smoothed))
+        print(res)
         return res.x
 
     @staticmethod
@@ -258,17 +262,20 @@ class NormNLD:
         chi2 = (data[:,1] - levels_smoothed)**2.
         if data.shape[1] == 3: # weight with uncertainty, if existent
             chi2 /= data[:,2]**2
-        chi2_low = np.sum(chi2)/n_low
+        chi2_low = np.sum(chi2)#/n_low
 
         data = NormNLD.normalize(data_high, A, alpha)
         n_high = len(data)
         Eshift = NormNLD.EshiftFromT(T, nld_Sn)
         chi2 = (data[:,1] - nldModel(data[:,0], T, Eshift))** 2.
         if data.shape[1] == 3: # weight with uncertainty, if existent
-            chi2 /= data[:,2]**2
-        chi2_high = np.sum(chi2)/n_high
+            chi2 /= (data[:,2])**2
+        chi2_high = np.sum(chi2)#/n_high
 
-        chi2 = (chi2_low + chi2_high)*(n_high+n_low)
+        chi2 = (chi2_low + chi2_high)#*(n_high+n_low)
+
+        # if abs(T-0.41)>0.01:
+        #     chi2 += 10e5
         return chi2
 
 
@@ -461,7 +468,7 @@ def transformGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
   gsf_ext_low_norm[:,1] *= b_norm
   gsf_ext_high_norm[:,1] *= b_norm
 
-  print("alpha_norm: {0}".format(alpha_norm))
+  # print("alpha_norm: {0}".format(alpha_norm))
   print("b_norm: {0}".format(b_norm))
 
   return gsf_norm, gsf_ext_low_norm, gsf_ext_high_norm, b_norm
@@ -577,9 +584,9 @@ def normalizeGSF(Emid_Eg, Emid_nld, rho_in, gsf_in,
           ext_d_slider_ax  = fig.add_axes([0.25, 0.20, 0.65, 0.03], facecolor=axis_color)
 
           sext_a = Slider(ext_a_slider_ax, 'a', 0., 2., valinit=ext_a)
-          sext_b = Slider(ext_b_slider_ax, 'b', 0, 5, valinit=ext_b)
+          sext_b = Slider(ext_b_slider_ax, 'b', -3, 5, valinit=ext_b)
           sext_c = Slider(ext_c_slider_ax, 'c', 0, 2., valinit=ext_c)
-          sext_d = Slider(ext_d_slider_ax, 'd', 0, 5, valinit=ext_d)
+          sext_d = Slider(ext_d_slider_ax, 'd', -3, 5, valinit=ext_d)
 
           def slider_update(val):
               # nonlocal gsf, gsf_ext_low, gsf_ext_high, b_norm

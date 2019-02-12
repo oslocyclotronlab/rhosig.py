@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import rhosig as rsg
 
-def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Egmin,nld_ext=None, rho_true=None, discretes=None, **kwargs):
+def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Emax, Egmin,nld_ext=None, rho_true=None, discretes=None, **kwargs):
     Nbins_Ex, Nbins_Eg= np.shape(P_in) # after
     bin_width = Emid_Eg[1]- Emid_Eg[0]
     Eup_max = Exmin + Nbins_Ex * bin_width # upper bound of last bin
@@ -64,7 +64,36 @@ def rsg_plots(rho_fit, T_fit, P_in, Emid_Eg, Emid_nld, Emid_Ex, Exmin, Egmin,nld
     ax.set_xlabel(r"$E_x \, \mathrm{(MeV)}$")
     ax.set_ylabel(r'$\rho \, \mathrm{(MeV)}$')
 
+    # "does it work" plots
+    # = comparison of slices of the 1st gen matrixes
+    Nx, Ny = 3, 2
+    Ntot = Nx * Ny
+    Exs = np.linspace(Exmin,Emax,num=Ntot)
+
+    f_mat, ax_mat = plt.subplots(Ny,Nx)
+    for i in range(Ntot):
+        Ex_plt = Exs[i] # Ex for this plot
+        iEx = np.abs(Emid_Ex-Ex_plt).argmin()
+        i_plt, j_plt = map_iterator_to_grid(i, Nx)
+        ax = ax_mat[i_plt,j_plt]
+        ax.plot(P_in[iEx,:],"k-", label="input")
+        ax.plot(P_fit[iEx,:],"b-", label="fit")
+        ax.title.set_text('Ex = {:.1f}'.format(Ex_plt))
+
+        ax.set_xlabel(r"$E_g \, \mathrm{(MeV)}$")
+        ax.set_ylabel('Probability')
+
+    ax_mat[0,0].legend()
+
+    plt.tight_layout()
     plt.show()
+
+def map_iterator_to_grid(counter, Nx):
+    # Returns i, j coordinate pairs to map a single iterator onto a 2D grid for subplots.
+    # Counts along each row from left to right, then increments row number
+    i = counter // Nx
+    j = counter % Nx
+    return i, j
 
 def normalized_plots(rho_fit, gsf_fit, gsf_ext_low, gsf_ext_high, Emid_Eg, Emid_nld, rho_true=None, rho_true_binwidth=None, gsf_true=None):
     # New Figure: compare input and output NLD and gsf
