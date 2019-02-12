@@ -45,35 +45,45 @@ else:
 
 ## Rebin and cut matrix
 pars_fg = {"Egmin" : 1.0,
-           "Exmin" : 2.0,
-           "Emax" : 5.0}
+           "Exmin" : 4.0,
+           "Emax" : 6.0}
 
 oslo_matrix, Nbins, Emid = ut.rebin_both_axis(oslo_matrix, Emid, rebin_fac = 4)
 oslo_matrix, Emid_Eg, Emid_Ex, Emid_nld = ut.fg_cut_matrix(oslo_matrix,
                                                         Emid, **pars_fg)
 
-##############
-# approximate uncertainty my sqrt of number of counts
-# def myfunc(N): return np.random.normal(N,np.sqrt(N))
-#     myfunc_vec = np.vectorize(myfunc)
-#     oslo_matrix=myfunc_vec(oslo_matrix)
-u_oslo_matrix = unumpy.uarray(oslo_matrix, np.sqrt(oslo_matrix))
-
-# normalize each Ex row to 1 (-> get decay probability)
-for i, normalization in enumerate(np.sum(u_oslo_matrix,axis=1)):
-	u_oslo_matrix[i,:] /= normalization
-oslo_matrix = unumpy.nominal_values(u_oslo_matrix)
-oslo_matrix_err = unumpy.std_devs(u_oslo_matrix)
-##############
+oslo_matrix_err = np.sqrt(oslo_matrix)
 
 ## decomposition of first gereration matrix P in NLD rho and transmission coefficient T
 try:
     rho_fit = np.load("rho_fit.npy")
     T_fit = np.load("T_fit.npy")
 except:
-    rho_fit, T_fit = rsg.decompose_matrix(P_in=oslo_matrix, P_err=oslo_matrix_err, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex=Emid_Ex, fill_value=1e-1)
+    rho_fit, T_fit = \
+        rsg.decompose_matrix_with_unc(P_in=oslo_matrix,
+                                      P_err=oslo_matrix_err,
+                                      Emid_Eg=Emid_Eg,
+                                      Emid_nld=Emid_nld,
+                                      Emid_Ex=Emid_Ex,
+                                      N_mc = 10,
+                                      options={"disp" : "True",
+                                               "maxfev" : 500 })
+    # hotfix: throw away uncertainty estimate in T
+    T_fit = T_fit[:,0]
+
     np.save("rho_fit.npy",rho_fit)
     np.save("T_fit.npy",T_fit)
+
+##############
+# normalization of input matrix [for plotting later]
+u_oslo_matrix = unumpy.uarray(oslo_matrix, np.sqrt(oslo_matrix))
+
+# normalize each Ex row to 1 (-> get decay probability)
+for i, normalization in enumerate(np.sum(u_oslo_matrix,axis=1)):
+  u_oslo_matrix[i,:] /= normalization
+oslo_matrix = unumpy.nominal_values(u_oslo_matrix)
+oslo_matrix_err = unumpy.std_devs(u_oslo_matrix)
+##############
 
 ## normalize the NLD
 
@@ -91,10 +101,10 @@ except:
 ###
 # # find_norm
 pnld_norm = {}
-pnld_norm["E1_low"] = 0.3
+pnld_norm["E1_low"] = 0.45
 pnld_norm["E2_low"] = 1.
-pnld_norm["E1_high"] = 3.0
-pnld_norm["E2_high"] = 4.
+pnld_norm["E1_high"] = 3.
+pnld_norm["E2_high"] = 4.5
 pnld_norm["nld_Sn"] = np.array([6.543,32e6])
 pnld_ext = {} # automatically found for CT
 pnld_ext["ext_range"] = np.array([2.5,7.]) # extrapolation range
@@ -102,8 +112,10 @@ pnld_ext["ext_range"] = np.array([2.5,7.]) # extrapolation range
 
 
 # fake an uncertainty
-nld_err = rho_fit * 0.1
-rho_fit = np.c_[rho_fit,nld_err]
+# nld_err = rho_fit_err
+# nld_err = rho_fit * 0.1
+# nld_err[:10] *= 2
+# rho_fit = np.c_[rho_fit,nld_err]
 
 nldInst = norm.NormNLD(nld=np.c_[Emid_nld, rho_fit],
                        method="find_norm", pnorm=pnld_norm,
@@ -116,8 +128,6 @@ nld_ext = nldInst.nld_ext
 A_norm = nldInst.A_norm
 alpha_norm = nldInst.alpha_norm
 discretes = nldInst.discretes
-
-splot.rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex = Emid_Ex, nld_ext=nld_ext, rho_true=None, discretes=discretes, **pars_fg)
 
 # rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, rho_true=rho_true, gsf_true=T_true)
 
@@ -180,6 +190,8 @@ gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid_Eg=Emid_Eg, 
      makePlot=makePlot, interactive=interactive)
 
 T_fit = 2.*np.pi*gsf_fit*pow(Emid_Eg,3.) # for completenes, calculate this, too
+
+splot.rsg_plots(rho_fit, T_fit, P_in=oslo_matrix, Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, Emid_Ex = Emid_Ex, nld_ext=nld_ext, rho_true=None, discretes=discretes, **pars_fg)
 
 # Comparison to "true" nld and gsf
 def load_NLDtrue(fdisc=data_folder+"/NLD_exp_disc.dat", fcont=data_folder+"NLDcont.dat"):

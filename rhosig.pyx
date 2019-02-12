@@ -22,18 +22,26 @@ the Free Software Foundation, either version 3 of the License, or
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+from uncertainties import unumpy
+
 cimport cython
 cimport numpy as np
 
-def decompose_matrix(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, fill_value=0):
+def decompose_matrix(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, method="Powell", options={'disp': True}, fill_value=0):
     """ routine for the decomposition of the first generations spectrum P_in
 
     Parameters:
     -----------
     P_in : ndarray
         First generations matrix to be decomposed
-    Emin : ndarray
-        Array of middle-bin values
+    Emid_Eg, Emid_nld, Emid_Ex : ndarray
+        Array of middle-bin values for Eg, nld and Ex
+    method : str
+        minimization method
+    options : dict
+        minimization methods
+    fill_value : currently unused
+
 
     Returns:
     --------
@@ -60,6 +68,20 @@ def decompose_matrix(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, fill_value=0):
     #   P_in[np.where(P_in == 0)] = fill_value # fill holes with a really small number
     #   P_in = np.tril(P_in,k=Nbins_T - Nbins_rho) # set lower triangle to 0 -- due to array form <-> where Eg>Ex
 
+    ##############
+    # approximate uncertainty my sqrt of number of counts
+    u_oslo_matrix = unumpy.uarray(P_in, np.sqrt(P_in))
+
+    # normalize each Ex row to 1 (-> get decay probability)
+    for i, normalization in enumerate(np.sum(u_oslo_matrix,axis=1)):
+        try:
+            u_oslo_matrix[i,:] /= normalization
+        except ZeroDivisionError:
+            u_oslo_matrix[i,:]=0
+    P_in = unumpy.nominal_values(u_oslo_matrix)
+    P_err = unumpy.std_devs(u_oslo_matrix)
+    ##############
+
     # initial guesses
     rho0 = np.ones(Nbins_rho)
 
@@ -70,8 +92,8 @@ def decompose_matrix(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, fill_value=0):
     p0 = np.append(rho0,T0) # create 1D array of the initial guess
 
     # minimization
-    res = minimize(objfun1D, x0=p0, args=(P_in,P_err,Emid_Eg,Emid_nld,Emid_Ex), method="Powell",
-        options={'disp': True})
+    res = minimize(objfun1D, x0=p0, args=(P_in,P_err,Emid_Eg,Emid_nld,Emid_Ex), method=method,
+         options=options)
     # further optimization: eg through higher tolderaced xtol and ftol
     # different other methods tried:
     # res = minimize(objfun1D, x0=p0, args=P_in,
@@ -84,7 +106,61 @@ def decompose_matrix(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, fill_value=0):
     #   options={'disp': True}) # does a bad job
 
     p_fit = res.x
-    rho_fit, T_fit= rhoTfrom1D(p_fit, Nbins_rho)
+    rho_fit, T_fit = rhoTfrom1D(p_fit, Nbins_rho)
+
+    return rho_fit, T_fit
+
+def decompose_matrix_with_unc(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, N_mc, method="Powell", options={'disp': True}, fill_value=0):
+    """
+    Routine for the decomposition of the first generations spectrum P_in
+    including a simple seach for statistical uncertainties. Perturbes input spectrum N_mc times and finds the mean and stddev. of the resulting fits.
+
+
+    Parameters:
+    -----------
+    P_in : ndarray
+        First generations matrix to be decomposed
+    Emin : ndarray
+        Array of middle-bin values
+    Emid_Eg, Emid_nld, Emid_Ex : ndarray
+        Array of middle-bin values for Eg, nld and Ex
+    N_mc : int
+        Number of iterations for the perturbation
+    method : str
+        minimization method
+    options : dict
+        minimization methods
+    fill_value : currently unused
+
+    Returns:
+    --------
+    rho_fit: ndarray
+        fitted nld (2D: mean, std)
+    T_fit: ndarray
+        fitted transmission coefficient (2D: mean, std)
+    """
+    P_in=np.copy(P_in)
+
+    Nbins_Ex, Nbins_T = np.shape(P_in)
+    Nbins_rho = Nbins_T
+    rhos = np.zeros((N_mc,Nbins_rho))
+    Ts = np.zeros((N_mc,Nbins_T))
+
+    for i_mc in range(N_mc):
+        P_in_mc = np.random.poisson(np.where(P_in>0, P_in, 0))
+        rhos[i_mc,:], Ts[i_mc,:] = decompose_matrix(P_in_mc, P_err, Emid_Eg,
+                                  Emid_nld, Emid_Ex,
+                                  method=method,
+                                  options=options,
+                                  fill_value=fill_value)
+
+    rho_fit = rhos.mean(axis=0)
+    rho_fit_err = rhos.std(axis=0)
+    rho_fit = np.c_[rho_fit,rho_fit_err]
+
+    T_fit = Ts.mean(axis=0)
+    T_fit_err = Ts.std(axis=0)
+    T_fit = np.c_[T_fit,T_fit_err]
 
     return rho_fit, T_fit
 
