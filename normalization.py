@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons
+import scipy.stats as stats
 
 from spinfunctions import SpinFunctions
 import utilities as ut
@@ -25,6 +26,9 @@ class NormNLD:
         NLD Model for extrapolation
     pext : dict
         Parameters needed for the chosen extrapolation method
+
+    # TODO: Change `extrapolate` to a static method: Easier for
+    calling ` normalize_scanning_samples`
     """
     def __init__(self, nld, method, pnorm, nldModel, pext):
         self.nld = nld
@@ -32,6 +36,8 @@ class NormNLD:
         self.pnorm = pnorm
         self.pext = pext
         self.nldModel = nldModel
+
+        self.nld_norm = None # Normalized nld
 
         if method is "2points":
             pars_req = {"nldE1", "nldE2"}
@@ -45,12 +51,14 @@ class NormNLD:
             self.A_norm = A_norm
             self.alpha_norm = alpha_norm
             self.nld_ext = nld_ext
+
         elif method is "find_norm":
-            self.A_norm, self.alpha_norm, self.T= self.find_norm()
-            # print(T)
-            self.nld_ext = self.extrapolate()
-            self.nld_norm = self.normalize(self.nld, self.A_norm, self.alpha_norm)
-            self.nld_norm = self.nld_norm
+            popt, samples = self.find_norm()
+            self.A_norm = popt["A"][0]
+            self.alpha_norm = popt["alpha"][0]
+            self.T = popt["T"][0]
+            self.normalize_scanning_samples(popt, samples)
+
         else:
             raise TypeError("\nError: Normalization model not supported; check spelling\n")
 
@@ -193,16 +201,18 @@ class NormNLD:
                                      args=chi2_args)
         print("Result from find_norm / differential evolution:\n", res)
 
-        T = res.x[2]
-        self.pext["T"] = T
-        self.pext["Eshift"] = self.EshiftFromT(T, nld_Sn)
-
         import multinest as ml
-        popt = dict(zip(["A","alpha","T"], (res.x).T))
-        ml.run_nld_2regions(popt=popt,
-                            chi2_args=chi2_args)
-        print(res)
-        return res.x
+        p0 = dict(zip(["A","alpha","T"], (res.x).T))
+        popt, samples = ml.run_nld_2regions(p0=p0,
+                                   chi2_args=chi2_args)
+
+        # set extrapolation as the median values used
+        self.pext["T"] = popt["T"][0]
+        self.pext["Eshift"] = self.EshiftFromT(popt["T"][0],
+                                               self.pnorm["nld_Sn"])
+        self.nld_ext = self.extrapolate()
+
+        return popt, samples
 
     @staticmethod
     def discretes(Emids, fname="discrete_levels.txt", resolution=0.1):
@@ -279,6 +289,44 @@ class NormNLD:
         # if abs(T-0.41)>0.01:
         #     chi2 += 10e5
         return chi2
+
+    def normalize_scanning_samples(self, popt, samples):
+        """
+        Normalize NLD given the transformation parameter samples from multinest
+
+        Parameters:
+        -----------
+        popt: (dict of str: (float,float)
+            Dictionary of median and stddev of the parameters
+        samples : dnarray
+            Equally weighted samples from the chain
+        """
+        nld = self.nld
+        Ex = self.nld[:,0]
+
+        # self.A_norm = self.popt["A"][0]
+        # self.alpha_norm = self.popt["alpha"][0]
+        # self.T = self.popt["T"][0]
+
+        # combine uncertainties from nld (from 1Gen fit) and transformation
+        if nld.shape[1] == 3:
+            N_samples_max = 100
+            N_loop = min(N_samples_max, len(samples["A"]))
+            nld_samples = np.zeros((N_loop,len(Ex)))
+            for i in range(N_loop):
+                nld_tmp = stats.norm.rvs(self.nld[:,1],self.nld[:,2])
+                nld_tmp = self.normalize(np.c_[Ex, nld_tmp],
+                                     samples["A"][i],
+                                     samples["alpha"][i])
+                nld_samples[i] = nld_tmp[:,1]
+            median = np.median(nld_samples,axis=0)
+            std = nld_samples.std(axis=0)
+            self.nld_norm = np.c_[Ex,median,std]
+
+        # no uncertainties on nld provided
+        if nld.shape[1]==2:
+            self.nld_norm = self.normalize(self.nld, self.A_norm,
+                                           self.alpha_norm)
 
 
 # extrapolations of the gsf
