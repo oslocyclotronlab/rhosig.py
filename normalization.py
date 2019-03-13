@@ -187,9 +187,10 @@ class NormNLD:
             print("Other models not yet supported in this fit")
 
         from scipy.optimize import differential_evolution
+        chi2_args = (nldModel, nld_Sn, data_low, data_high, levels_smoothed)
         res = differential_evolution(self.chi2_disc_ext,
                                      bounds=[(-10,10),(-10,10),(0.01,1)],
-                                     args=(nldModel, nld_Sn, data_low, data_high, levels_smoothed))
+                                     args=chi2_args)
         print("Result from find_norm / differential evolution:\n", res)
 
         T = res.x[2]
@@ -197,8 +198,9 @@ class NormNLD:
         self.pext["Eshift"] = self.EshiftFromT(T, nld_Sn)
 
         import multinest as ml
-
-        ml.run_nld_2regions(parameters = ["A", "alpha", "T"], args=(nldModel, nld_Sn, data_low, data_high, levels_smoothed))
+        popt = dict(zip(["A","alpha","T"], (res.x).T))
+        ml.run_nld_2regions(popt=popt,
+                            chi2_args=chi2_args)
         print(res)
         return res.x
 

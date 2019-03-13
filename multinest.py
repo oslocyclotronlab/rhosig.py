@@ -1,46 +1,68 @@
 import json
 import sys
 import numpy
-import scipy, scipy.stats
+import math
+import scipy.stats
 import pymultinest
 import os
 
-import normalization as onorm
-# import matplotlib.pyplot as plt
+import normalization as omnorm
 
-def run_nld_2regions(parameters, args):
+def run_nld_2regions(popt, chi2_args):
+    """
+    Run multinest for the nld normalization on two regions:
+    Discrete levels at low energy and nld(Sn) (or model) at high energies
 
-    # a more elaborate prior
-    # parameters are pos1, width, height1, [height2]
+    Parameters:
+    -----------
+    popt: (OrderedDict of str: float)
+        Parameter names and corresponding best fit. They will be used to create the priors
+    chi2_args: (tuple)
+        Additional arguments for the Chi2 minimization
+
+    Returns:
+    --------
+    multinest-files:
+        dumps multinest files to disk
+    """
+
+    assert list(popt.keys()) == ["A", "alpha", "T"], \
+        "check if parameters really differ, if so, need to adjust priors!"
+
+    A = popt["A"]
+    alpha = popt["alpha"]
+    alpha_exponent = math.log(alpha, 10)
+    T= popt["T"]
+    T_exponent = math.log(T, 10)
+
     def prior(cube, ndim, nparams):
-        # cube[0] = cube[0]            # uniform prior between 0:1
-        # cube[0] = norm.ppf(cube[0], loc=0,scale=2) # log-normal prior
-        # cube[0] = np.exp(cube[0])
-        # cube[0] = cube[0]*20-10 # uniform prior between -10 and 10
-        # cube[0] = cube[0]*20-10 # uniform prior between -10 and 10
-
-        #TODO: important to adjust for each case!!
-        cube[0]=scipy.stats.norm.ppf(cube[0], loc=6,scale=20)
-        cube[1] = 10**(cube[1]*2 - 1) # log-uniform prior between 10^-1 and 10^1
-        cube[2] = 10**(cube[2]*2 - 2) # log-uniform prior between 10^-2 and 10^1
+        # TODO: You may want to adjust this for your case!
+        # log-normal prior
+        cube[0] = scipy.stats.norm.ppf(cube[0], loc=A,scale=4*A)
+        # log-uniform prior
+        # # if alpha = 1e2, it's between 1e1 and 1e3
+        cube[1] = 10**(cube[1]*(alpha_exponent+2) - (1-alpha_exponent))
+        # # log-uniform prior
+        # # if T = 1e2, it's between 1e1 and 1e3
+        cube[2] = 10**(cube[2]*(T_exponent+2) - (1-T_exponent))
 
 
     def loglike(cube, ndim, nparams):
-        chi2 = onorm.NormNLD.chi2_disc_ext(cube, *args)
+        chi2 = omnorm.NormNLD.chi2_disc_ext(cube, *chi2_args)
         loglikelihood = -0.5 * chi2
         return loglikelihood
 
     # number of dimensions our problem has
-    # parameters = ["pos1", "width", "height1"]
-    n_params = len(parameters)
+    n_params = len(popt)
 
     folder = 'multinest'
     if not os.path.exists(folder):
         os.makedirs(folder)
-    datafile = os.path.join(os.getcwd(), "norm")
+    datafile = os.path.join(os.getcwd(), *(folder,"nld_norm"))
 
     # run MultiNest
     pymultinest.run(loglike, prior, n_params,
-                    outputfiles_basename=datafile + '_3_',
+                    outputfiles_basename=datafile + '_1_',
                     resume = False, verbose = True)
-    json.dump(parameters, open(datafile + '_3_params.json', 'w')) # save parameter names
+    # save parameter names
+    json.dump(list(popt.keys()), open(datafile + '_1_params.json', 'w'))
