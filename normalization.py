@@ -27,8 +27,6 @@ class NormNLD:
     pext : dict
         Parameters needed for the chosen extrapolation method
 
-    # TODO: Change `extrapolate` to a static method: Easier for
-    calling ` normalize_scanning_samples`
     """
     def __init__(self, nld, method, pnorm, nldModel, pext):
         self.nld = nld
@@ -243,11 +241,6 @@ class NormNLD:
         """
         Chi^2 between discrete levels at low energy and extrapolation at high energies
 
-        TODO: Check validity of the assumed chi^2 "cost" function
-        Currently, I assume that I should weight with the number of points
-        in each dataset (highvs low energies), such that the discretes
-        and nld(Sn) will be weighted the same. But unsure whether that will produce the correct uncertainties (once we figured how to calculate them.)
-
         Note: Currently working with CT extrapolation only, but should be little effort to change.
 
         Parameters:
@@ -274,7 +267,7 @@ class NormNLD:
         chi2 = (data[:,1] - levels_smoothed)**2.
         if data.shape[1] == 3: # weight with uncertainty, if existent
             chi2 /= data[:,2]**2
-        chi2_low = np.sum(chi2)#/n_low
+        chi2_low = np.sum(chi2)
 
         data = NormNLD.normalize(data_high, A, alpha)
         n_high = len(data)
@@ -282,12 +275,9 @@ class NormNLD:
         chi2 = (data[:,1] - nldModel(data[:,0], T, Eshift))** 2.
         if data.shape[1] == 3: # weight with uncertainty, if existent
             chi2 /= (data[:,2])**2
-        chi2_high = np.sum(chi2)#/n_high
+        chi2_high = np.sum(chi2)
 
-        chi2 = (chi2_low + chi2_high)#*(n_high+n_low)
-
-        # if abs(T-0.41)>0.01:
-        #     chi2 += 10e5
+        chi2 = (chi2_low + chi2_high)
         return chi2
 
     def normalize_scanning_samples(self, popt, samples):
