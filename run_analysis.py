@@ -186,14 +186,22 @@ gsf_true_all = np.loadtxt(data_folder+"/GSFTable_py.dat")
 gsf_true_tot = gsf_true_all[:,1] + gsf_true_all[:,2]
 gsf_true = np.column_stack((gsf_true_all[:,0],gsf_true_tot))
 
-gsf_fit, b_norm, gsf_ext_low, gsf_ext_high = norm.normalizeGSF(Emid_Eg=Emid_Eg, Emid_nld=Emid_nld, rho_in=rho_fit, gsf_in=gsf_fit,
-     gsf_referece = gsf_true,
-     nld_ext = nld_ext,
-     gsf_ext_range=gsf_ext_range, pars=pars,
-     Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn, alpha_norm=alpha_norm,
-     normMethod=normMethod,
-     spincutModel=spincutModel, spincutPars=spincutPars,
-     makePlot=makePlot, interactive=interactive)
+normGSF = norm.NormGSF(gsf=np.c_[Emid_Eg,gsf_fit],
+                       method=normMethod,
+                       Jtarget=Jtarget, D0=D0, Gg=Gg, Sn=Sn,
+                       alpha_norm=alpha_norm,
+                       pext=pars, ext_range = gsf_ext_range,
+                       spincutModel=spincutModel, spincutPars=spincutPars,
+                       nld=np.c_[Emid_nld,rho_fit], nld_ext=nld_ext)
+
+normGSF.normalizeGSF(gsf_referece = gsf_true,
+                     makePlot=makePlot,
+                     interactive=interactive)
+
+gsf_fit = normGSF.gsf[:,1]
+gsf_ext_low = normGSF.gsf_ext_low
+gsf_ext_high = normGSF.gsf_ext_high
+pars = normGSF.pext
 
 T_fit = 2.*np.pi*gsf_fit*pow(Emid_Eg,3.) # for completenes, calculate this, too
 
