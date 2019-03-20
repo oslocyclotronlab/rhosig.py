@@ -23,9 +23,57 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from uncertainties import unumpy
+from spinfunctions import SpinFunctions
 
 cimport cython
 cimport numpy as np
+
+# TODO: Move this into the function call
+# normalization of the gsf
+# choose a spincut model and give it's parameters
+spincutModel = "EB05"
+spincutPars = {"mass": 240, "NLDa": 25.16, "Eshift": 0.12}  # some dummy values
+Jmax = 20
+cdef np.ndarray Js = np.linspace(0, Jmax, Jmax+1)
+
+def spin_dist(Ex, J):
+    return SpinFunctions(Ex=Ex, J=J,
+                         model=spincutModel,
+                         pars=spincutPars).distibution()
+
+
+def z(np.ndarray Exarr, np.ndarray Egarr):
+    cdef np.ndarray z
+    cdef float inner_sum
+    cdef list Jfs
+    cdef float g_pop
+    cdef int ji
+    cdef int jf
+    cdef int i_Ex, i_Eg
+    cdef float Ex, Eg
+
+    z = np.zeros((len(Exarr), len(Egarr)))
+
+    for i_Ex, Ex in enumerate(Exarr):
+        for i_Eg, Eg in enumerate(Egarr):
+            if Ex-Eg <= 0:
+                continue
+            for ji in Js:
+                if ji==0:
+                    Jfs = [1]
+                else:
+                    Jfs = [ji-1, ji, ji+1]
+                # assume g_pop propto g_int
+                # TODO: should the 1/2 be there?
+                g_pop = 1./2. * spin_dist(Ex, ji)
+                inner_sum = 0
+                for jf in Jfs:
+                    # TODO: should the 1/2 be there?
+                    inner_sum += 1./2. * spin_dist(Ex-Eg, jf)
+                    # print(spin_dist(Ex-Eg, jf))
+                z[i_Ex, i_Eg] += g_pop * inner_sum
+    return z
+
 
 def decompose_matrix(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, method="Powell", options={'disp': True}, fill_value=0):
     """ routine for the decomposition of the first generations spectrum P_in
@@ -82,6 +130,7 @@ def decompose_matrix(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, method="Powell", o
     P_err = unumpy.std_devs(u_oslo_matrix)
     ##############
 
+    z_array = z(Emid_Ex,Emid_Eg)
     # initial guesses
     rho0 = np.ones(Nbins_rho)
 
@@ -92,7 +141,7 @@ def decompose_matrix(P_in, P_err, Emid_Eg, Emid_nld, Emid_Ex, method="Powell", o
     p0 = np.append(rho0,T0) # create 1D array of the initial guess
 
     # minimization
-    res = minimize(objfun1D, x0=p0, args=(P_in,P_err,Emid_Eg,Emid_nld,Emid_Ex), method=method,
+    res = minimize(objfun1D, x0=p0, args=(P_in,P_err,Emid_Eg,Emid_nld,Emid_Ex, z_array), method=method,
          options=options)
     # further optimization: eg through higher tolderaced xtol and ftol
     # different other methods tried:
@@ -179,20 +228,21 @@ def objfun1D(x, *args):
 
     """
 
-    Pexp, Perr, Emid_Eg, Emid_nld, Emid_Ex = args
+    Pexp, Perr, Emid_Eg, Emid_nld, Emid_Ex, z_arr = args
     Pexp = np.asarray(Pexp)
     Perr = np.asarray(Perr)
     Emid_Eg = np.asarray(Emid_Eg)
     Emid_nld = np.asarray(Emid_nld)
     Emid_Ex = np.asarray(Emid_Ex)
+    z_arr = np.asarray(z_arr)
     Pexp = Pexp.reshape(-1, Pexp.shape[-1])
     Nbins_Ex, Nbins_T = np.shape(Pexp)
     Nbins_rho = Nbins_T
     rho, T = rhoTfrom1D(x, Nbins_rho)
-    return chi2(rho, T, Pexp, Perr, Emid_Eg, Emid_nld, Emid_Ex)
+    return chi2(rho, T, Pexp, Perr, Emid_Eg, Emid_nld, Emid_Ex, z_arr)
 
 
-def chi2(np.ndarray rho, np.ndarray T, np.ndarray Pexp, np.ndarray Perr, np.ndarray Emid_Eg, np.ndarray Emid_nld, np.ndarray Emid_Ex):
+def chi2(np.ndarray rho, np.ndarray T, np.ndarray Pexp, np.ndarray Perr, np.ndarray Emid_Eg, np.ndarray Emid_nld, np.ndarray Emid_Ex, np.ndarray z_arr):
     """ Chi^2 between experimental and fitted first genration matrix"""
     cdef float chi2
     cdef np.ndarray Pfit
@@ -200,7 +250,8 @@ def chi2(np.ndarray rho, np.ndarray T, np.ndarray Pexp, np.ndarray Perr, np.ndar
         chi2 = 1e20
     else:
         Nbins_Ex, Nbins_T = np.shape(Pexp)
-        Pfit = PfromRhoT(rho, T, Nbins_Ex, Emid_Eg, Emid_nld, Emid_Ex)
+        Pfit = PfromRhoT(rho, T, Nbins_Ex, Emid_Eg, Emid_nld, Emid_Ex,
+                         z_array_in=z_arr)
         # chi^2 = (data - fit)^2 / unc.^2, where unc.^2 = #cnt for Poisson dist.
         chi2 = np.sum( div0((Pexp - Pfit)**2,Perr**2))
     return chi2
@@ -208,7 +259,7 @@ def chi2(np.ndarray rho, np.ndarray T, np.ndarray Pexp, np.ndarray Perr, np.ndar
 
 @cython.boundscheck(True) # turn off bounds-checking for entire function
 @cython.wraparound(True)  # turn off negative index wrapping for entire function
-def PfromRhoT(np.ndarray rho, np.ndarray T, int Nbins_Ex, np.ndarray Emid_Eg, np.ndarray Emid_nld, np.ndarray Emid_Ex, type="transCoeff"):
+def PfromRhoT(np.ndarray rho, np.ndarray T, int Nbins_Ex, np.ndarray Emid_Eg, np.ndarray Emid_nld, np.ndarray Emid_Ex, type="transCoeff", np.ndarray z_array_in=None):
     """ Generate a first gernation matrix P from given nld and T (or gsf)
 
     Parameters:
@@ -235,6 +286,12 @@ def PfromRhoT(np.ndarray rho, np.ndarray T, int Nbins_Ex, np.ndarray Emid_Eg, np
     cdef int i_Ex, i_Eg, i_Ef, Nbins
     cdef double Ef ,Ex
     cdef double Eg
+    cdef np.ndarray z_array
+    if z_array_in is None:
+        z_array = z(Emid_Ex,Emid_Eg)
+    else:
+        z_array = z_array_in
+
     global Emid_Eg
     cdef np.ndarray P = np.zeros((Nbins_Ex,Nbins_T))
     # for i_Ex in range(Nbins_Ex):
@@ -246,9 +303,10 @@ def PfromRhoT(np.ndarray rho, np.ndarray T, int Nbins_Ex, np.ndarray Emid_Eg, np
             Ef = Emid_Ex[i_Ex] - Emid_Eg[i_Eg]
             i_Ef = (np.abs(Emid_nld-Ef)).argmin()
             if i_Ef>=0: # no gamma's with higher energy then the excitation energy
-                P[i_Ex,i_Eg] = rho[i_Ef] * T[i_Eg]
+                Eg = Emid_Eg[i_Eg]
+                P[i_Ex,i_Eg] = rho[i_Ef] * T[i_Eg] * z_array[i_Ex,i_Eg]
+                # P[i_Ex,i_Eg] = rho[i_Ef] * T[i_Eg]
                 if type=="gsfL1": # if input T was a gsf, not transmission coeff: * E^(2L+1)
-                    Eg = Emid_Eg[i_Eg]
                     P[i_Ex,i_Eg] *= np.power(Eg,3.)
     # normalize each Ex row to 1 (-> get decay probability)
     for i, normalization in enumerate(np.sum(P,axis=1)):

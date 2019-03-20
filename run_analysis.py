@@ -55,27 +55,22 @@ oslo_matrix, Emid_Eg, Emid_Ex, Emid_nld = ut.fg_cut_matrix(oslo_matrix,
 oslo_matrix_err = np.sqrt(oslo_matrix)
 
 ## decomposition of first gereration matrix P in NLD rho and transmission coefficient T
-try:
 
-    rho_fit = np.load("rho_fit.npy")
-    T_fit = np.load("T_fit.npy")
-    # hotfix: throw away uncertainty estimate in T
-    T_fit = T_fit[:,0]
-except:
-    rho_fit, T_fit = \
-        rsg.decompose_matrix_with_unc(P_in=oslo_matrix,
-                                      P_err=oslo_matrix_err,
-                                      Emid_Eg=Emid_Eg,
-                                      Emid_nld=Emid_nld,
-                                      Emid_Ex=Emid_Ex,
-                                      N_mc = 10,
-                                      options={"disp" : "True",
-                                               "maxfev" : 500 })
+rho_fit, T_fit = \
+    rsg.decompose_matrix_with_unc(P_in=oslo_matrix,
+                                  P_err=oslo_matrix_err,
+                                  Emid_Eg=Emid_Eg,
+                                  Emid_nld=Emid_nld,
+                                  Emid_Ex=Emid_Ex,
+                                  N_mc = 10,
+                                  method="Powell",
+                                  options={"disp" : "True",
+                                           "maxfev" : 1000})
 
-    np.save("rho_fit.npy",rho_fit)
-    np.save("T_fit.npy",T_fit)
-    # hotfix: throw away uncertainty estimate in T
-    T_fit = T_fit[:,0]
+np.save("rho_fit.npy",rho_fit)
+np.save("T_fit.npy",T_fit)
+# hotfix: throw away uncertainty estimate in T
+T_fit = T_fit[:,0]
 
 ##############
 # normalization of input matrix [for plotting later]
