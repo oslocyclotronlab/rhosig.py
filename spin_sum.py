@@ -79,7 +79,7 @@ Ex_select = 4
 idE = (np.abs(Es-Ex_select)).argmin()
 ax1.plot(Es,z(Ex,Eg)[idE,:],label="Ex={:.1f}".format(Ex_select))
 ax1.legend(loc="best")
-ax1.set_xlabel("Ex")
+ax1.set_xlabel("Eg")
 
 ax2.set_title("Diagonal: \"impact on nld\"")
 xarr = Es[::-1]-Es
