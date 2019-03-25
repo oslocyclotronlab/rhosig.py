@@ -46,15 +46,15 @@ def run_nld_2regions(p0, chi2_args):
     T_exponent = math.log(T, 10)
 
     def prior(cube, ndim, nparams):
-        # TODO: You may want to adjust this for your case!
+        # NOTE: You may want to adjust this for your case!
         # log-normal prior
-        cube[0] = scipy.stats.norm.ppf(cube[0], loc=A,scale=4*A)
+        cube[0] = scipy.stats.norm.ppf(cube[0], loc=A, scale=4*A)
         # log-uniform prior
-        # # if alpha = 1e2, it's between 1e1 and 1e3
-        cube[1] = 10**(cube[1]*(alpha_exponent+2) - (1-alpha_exponent))
-        # # log-uniform prior
-        # # if T = 1e2, it's between 1e1 and 1e3
-        cube[2] = 10**(cube[2]*(T_exponent+2) - (1-T_exponent))
+        # if alpha = 1e2, it's between 1e1 and 1e3
+        cube[1] = 10**(cube[1]*2 + (alpha_exponent-1))
+        # log-uniform prior
+        # if T = 1e2, it's between 1e1 and 1e3
+        cube[2] = 10**(cube[2]*2 + (T_exponent-1))
 
 
     def loglike(cube, ndim, nparams):
